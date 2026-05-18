@@ -15,6 +15,7 @@ import { SessionsPage } from '../pages/Sessions/SessionsPage'
 import { GuestRoute } from './GuestRoute'
 import { ProtectedRoute } from './ProtectedRoute'
 import { CreateSessionPage } from '../pages/Sessions/CreateSessionPage'
+import { SessionDetailsPage } from '../pages/Sessions/SessionDetailsPage'
 
 export function AppRouter() {
   return (
@@ -40,6 +41,7 @@ export function AppRouter() {
             <Route path="/scenarios/:id" element={<ScenarioDetailsPage />} />
 
             <Route path="/sessions" element={<SessionsPage />} />
+            <Route path="/sessions/:id" element={<SessionDetailsPage />} />
             <Route path="/sessions/create" element={<CreateSessionPage />} />
           </Route>
 
