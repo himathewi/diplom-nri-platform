@@ -75,6 +75,10 @@ export function TeamsPage() {
             моделирования производственных ролей и анализа совместных решений.
           </p>
         </div>
+
+        <Link className="button-secondary" to="/teams/join">
+          Вступить по коду
+        </Link>
       </div>
 
       <div className="details-grid">

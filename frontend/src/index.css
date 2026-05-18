@@ -529,3 +529,17 @@ button:disabled {
 .info-box p + p {
   margin-top: 10px;
 }
+.steps-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 22px;
+  padding-left: 22px;
+  color: #526173;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.steps-list li::marker {
+  color: #1f6feb;
+  font-weight: 800;
+}

@@ -12,6 +12,7 @@ import { ScenariosPage } from '../pages/Scenarios/ScenariosPage'
 import { TeamsPage } from '../pages/Teams/TeamPage'
 import { TeamDetailsPage } from '../pages/Teams/TeamDetailsPage'
 import { UsersPage } from '../pages/Users/UsersPage'
+import { JoinTeamPage } from '../pages/Teams/JoinTeamPage'
 
 export function AppRouter() {
   return (
@@ -26,6 +27,7 @@ export function AppRouter() {
           <Route path="/users" element={<UsersPage />} />
 
           <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/teams/join" element={<JoinTeamPage />} />
           <Route path="/teams/:id" element={<TeamDetailsPage />} />
 
           <Route path="/scenarios" element={<ScenariosPage />} />
