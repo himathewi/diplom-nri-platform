@@ -364,3 +364,27 @@ button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
+.task-form {
+  display: grid;
+  gap: 18px;
+}
+
+.task-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.button-ghost-danger {
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-ghost-danger:hover {
+  color: #991b1b;
+}

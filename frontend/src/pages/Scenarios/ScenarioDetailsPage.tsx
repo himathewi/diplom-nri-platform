@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useScenariosStore } from '../../stores/scenariosStore'
 
@@ -26,9 +26,16 @@ export function ScenarioDetailsPage() {
     error,
     fetchScenarioById,
     deleteScenario,
+    addScenarioTask,
+    deleteScenarioTask,
     clearSelectedScenario,
     clearError,
   } = useScenariosStore()
+
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDescription, setTaskDescription] = useState('')
+  const [taskType, setTaskType] = useState('production_situation')
+  const [expectedResult, setExpectedResult] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -58,6 +65,49 @@ export function ScenarioDetailsPage() {
     navigate('/scenarios')
   }
 
+  async function handleAddTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!id) {
+      return
+    }
+
+    const normalizedTitle = taskTitle.trim()
+    const normalizedDescription = taskDescription.trim()
+    const normalizedTaskType = taskType.trim()
+    const normalizedExpectedResult = expectedResult.trim()
+
+    if (!normalizedTitle || !normalizedDescription || !normalizedTaskType) {
+      return
+    }
+
+    await addScenarioTask(id, {
+      title: normalizedTitle,
+      description: normalizedDescription,
+      taskType: normalizedTaskType,
+      expectedResult: normalizedExpectedResult || null,
+    })
+
+    setTaskTitle('')
+    setTaskDescription('')
+    setTaskType('production_situation')
+    setExpectedResult('')
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!id) {
+      return
+    }
+
+    const confirmed = window.confirm('Удалить задачу сценария?')
+
+    if (!confirmed) {
+      return
+    }
+
+    await deleteScenarioTask(id, taskId)
+  }
+
   if (!id) {
     return (
       <section>
@@ -68,7 +118,7 @@ export function ScenarioDetailsPage() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading && !selectedScenario) {
     return (
       <section>
         <p>Загрузка сценария...</p>
@@ -98,6 +148,8 @@ export function ScenarioDetailsPage() {
     )
   }
 
+  const tasks = selectedScenario.tasks ?? []
+
   return (
     <section>
       <div className="page-header">
@@ -116,7 +168,7 @@ export function ScenarioDetailsPage() {
           type="button"
           onClick={handleDeleteScenario}
         >
-          Удалить
+          Удалить сценарий
         </button>
       </div>
 
@@ -143,18 +195,95 @@ export function ScenarioDetailsPage() {
         </article>
 
         <article className="details-card">
+          <h2>Добавление задачи сценария</h2>
+
+          <form className="task-form" onSubmit={handleAddTask}>
+            <label className="form-field">
+              <span>Название задачи</span>
+              <input
+                required
+                maxLength={120}
+                value={taskTitle}
+                placeholder="Например: Распределить технику между участками"
+                onChange={(event) => setTaskTitle(event.target.value)}
+              />
+            </label>
+
+            <label className="form-field">
+              <span>Тип задачи</span>
+              <select
+                value={taskType}
+                onChange={(event) => setTaskType(event.target.value)}
+              >
+                <option value="production_situation">
+                  Производственная ситуация
+                </option>
+                <option value="resource_distribution">
+                  Распределение ресурсов
+                </option>
+                <option value="team_decision">Командное решение</option>
+                <option value="risk_response">Реакция на риск</option>
+                <option value="technical_failure">Технический сбой</option>
+              </select>
+            </label>
+
+            <label className="form-field">
+              <span>Описание задачи</span>
+              <textarea
+                required
+                rows={4}
+                value={taskDescription}
+                placeholder="Опишите, что должны проанализировать и решить участники."
+                onChange={(event) => setTaskDescription(event.target.value)}
+              />
+            </label>
+
+            <label className="form-field">
+              <span>Ожидаемый результат</span>
+              <textarea
+                rows={3}
+                value={expectedResult}
+                placeholder="Например: участники должны выбрать приоритетный маршрут и обосновать решение."
+                onChange={(event) => setExpectedResult(event.target.value)}
+              />
+            </label>
+
+            <div className="form-actions">
+              <button
+                className="button-primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Сохранение...' : 'Добавить задачу'}
+              </button>
+            </div>
+          </form>
+        </article>
+
+        <article className="details-card">
           <h2>Задачи сценария</h2>
 
-          {selectedScenario.tasks.length === 0 ? (
+          {tasks.length === 0 ? (
             <p>
-              Для сценария пока не добавлены задачи. Позже здесь будет интерфейс
-              добавления этапов сценарной сессии.
+              Для сценария пока не добавлены задачи. Добавь хотя бы одну, иначе
+              сценарий невозможно использовать как нормальную учебную сессию.
             </p>
           ) : (
             <div className="tasks-list">
-              {selectedScenario.tasks.map((task) => (
+              {tasks.map((task) => (
                 <article className="task-card" key={task.id}>
-                  <h3>{task.title}</h3>
+                  <div className="task-card__header">
+                    <h3>{task.title}</h3>
+
+                    <button
+                      className="button-ghost-danger"
+                      type="button"
+                      onClick={() => handleDeleteTask(task.id)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+
                   <p>{task.description}</p>
 
                   <div className="scenario-card__meta">
