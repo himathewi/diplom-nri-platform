@@ -141,24 +141,46 @@ export function TeamDetailsPage() {
 
       <div className="details-grid">
         <article className="details-card">
-          <h2>Добавление участника</h2>
+            <h2>Приглашение участников</h2>
 
-          <div className="info-box">
-        <h3>Приглашение участников</h3>
+            <div className="invite-panel">
+                <div>
+                <h3>Ссылка приглашения</h3>
+                <p>
+                    Модератор сможет создать ссылку и отправить её участнику. После входа в
+                    систему пользователь сможет принять приглашение и попасть в команду.
+                </p>
+                </div>
 
-        <p>
-            В финальной версии участники будут добавляться в команду через ссылку
-            приглашения или короткий код команды. Это позволит не раскрывать список
-            всех пользователей портала и сохранить нормальную модель доступа.
-        </p>
+                <button className="button-secondary" type="button" disabled>
+                Создать ссылку
+                </button>
+            </div>
 
-        <p>
-            Текущее добавление по ID используется только как временный MVP-режим для
-            проверки работы backend-модуля команд.
-        </p>
-        </div>
+            <div className="invite-panel">
+                <div>
+                <h3>Код команды</h3>
+                <p>
+                    Для очной учебной сессии модератор сможет показать короткий код, а
+                    участники введут его на странице присоединения к команде.
+                </p>
+                </div>
 
-          <form className="task-form" onSubmit={handleAddMember}>
+                <button className="button-secondary" type="button" disabled>
+                Сгенерировать код
+                </button>
+            </div>
+
+            <div className="info-box">
+                <h3>MVP-режим</h3>
+                <p>
+                До появления backend endpoint для приглашений участника можно добавить по
+                ID пользователя. Это технический режим для проверки работы модуля команд,
+                а не финальная модель пользовательского доступа.
+                </p>
+            </div>
+
+            <form className="task-form team-member-form" onSubmit={handleAddMember}>
             <label className="form-field">
               <span>ID пользователя</span>
               <input

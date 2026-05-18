@@ -543,3 +543,32 @@ button:disabled {
   color: #1f6feb;
   font-weight: 800;
 }
+.invite-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid #e4eaf3;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.invite-panel + .invite-panel,
+.invite-panel + .info-box,
+.info-box + .team-member-form {
+  margin-top: 16px;
+}
+
+.invite-panel h3 {
+  margin: 0 0 8px;
+}
+
+.invite-panel p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.team-member-form {
+  padding-top: 4px;
+}
