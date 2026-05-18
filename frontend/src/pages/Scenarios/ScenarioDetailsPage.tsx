@@ -7,13 +7,25 @@ const domainLabels: Record<string, string> = {
   GREENHOUSE: 'Тепличное хозяйство',
   LIVESTOCK: 'Животноводство',
   LOGISTICS: 'Логистика',
-  PROCESSING: 'Переработка',
+  PROCESSING: 'Переработка продукции',
   ROBOTICS: 'Робототехника',
-  TEAMBUILDING: 'Тимбилдинг',
+  TEAMBUILDING: 'Командное обучение',
+}
+
+const taskTypeLabels: Record<string, string> = {
+  production_situation: 'Производственная ситуация',
+  resource_distribution: 'Распределение ресурсов',
+  team_decision: 'Командное решение',
+  risk_response: 'Реакция на риск',
+  technical_failure: 'Технический сбой',
 }
 
 function getDomainLabel(domain: string) {
   return domainLabels[domain] ?? domain
+}
+
+function getTaskTypeLabel(taskType: string) {
+  return taskTypeLabels[taskType] ?? taskType
 }
 
 export function ScenarioDetailsPage() {
@@ -54,7 +66,7 @@ export function ScenarioDetailsPage() {
     }
 
     const confirmed = window.confirm(
-      'Удалить сценарий? Это действие нельзя отменить.',
+      'Удалить сценарий? Вместе с ним будут недоступны связанные задачи сценария.',
     )
 
     if (!confirmed) {
@@ -67,6 +79,7 @@ export function ScenarioDetailsPage() {
 
   async function handleAddTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    clearError()
 
     if (!id) {
       return
@@ -113,7 +126,9 @@ export function ScenarioDetailsPage() {
       <section>
         <h1>Сценарий не найден</h1>
         <p>В адресе страницы отсутствует идентификатор сценария.</p>
-        <Link to="/scenarios">Вернуться к сценариям</Link>
+        <Link className="text-link" to="/scenarios">
+          ← Вернуться к сценариям
+        </Link>
       </section>
     )
   }
@@ -133,7 +148,9 @@ export function ScenarioDetailsPage() {
           <p>{error}</p>
         </div>
 
-        <Link to="/scenarios">Вернуться к сценариям</Link>
+        <Link className="text-link" to="/scenarios">
+          ← Вернуться к сценариям
+        </Link>
       </section>
     )
   }
@@ -143,7 +160,10 @@ export function ScenarioDetailsPage() {
       <section>
         <h1>Сценарий не найден</h1>
         <p>Возможно, сценарий был удалён или недоступен текущему пользователю.</p>
-        <Link to="/scenarios">Вернуться к сценариям</Link>
+
+        <Link className="text-link" to="/scenarios">
+          ← Вернуться к сценариям
+        </Link>
       </section>
     )
   }
@@ -158,9 +178,16 @@ export function ScenarioDetailsPage() {
             ← К списку сценариев
           </Link>
 
+          <p className="eyebrow">Сценарий</p>
           <h1>{selectedScenario.title}</h1>
 
           <p>{selectedScenario.description}</p>
+
+          <div className="scenario-card__meta">
+            <span>{getDomainLabel(selectedScenario.domain)}</span>
+            <span>Сложность: {selectedScenario.difficulty} / 5</span>
+            <span>Задач: {tasks.length}</span>
+          </div>
         </div>
 
         <button
@@ -174,28 +201,18 @@ export function ScenarioDetailsPage() {
 
       <div className="details-grid">
         <article className="details-card">
-          <h2>Параметры сценария</h2>
+          <h2>Цель сценария</h2>
 
-          <dl className="details-list">
-            <div>
-              <dt>Направление</dt>
-              <dd>{getDomainLabel(selectedScenario.domain)}</dd>
-            </div>
-
-            <div>
-              <dt>Сложность</dt>
-              <dd>{selectedScenario.difficulty} / 5</dd>
-            </div>
-
-            <div>
-              <dt>Цель</dt>
-              <dd>{selectedScenario.goal}</dd>
-            </div>
-          </dl>
+          <p>{selectedScenario.goal}</p>
         </article>
 
         <article className="details-card">
           <h2>Добавление задачи сценария</h2>
+
+          <p>
+            Задача сценария описывает отдельный этап, проблему или решение,
+            которое участники должны проработать во время сценарной сессии.
+          </p>
 
           <form className="task-form" onSubmit={handleAddTask}>
             <label className="form-field">
@@ -264,16 +281,25 @@ export function ScenarioDetailsPage() {
           <h2>Задачи сценария</h2>
 
           {tasks.length === 0 ? (
-            <p>
-              Для сценария пока не добавлены задачи. Добавь хотя бы одну, иначе
-              сценарий невозможно использовать как нормальную учебную сессию.
-            </p>
+            <div className="empty-state">
+              <h2>Задач пока нет</h2>
+              <p>
+                Добавь хотя бы одну задачу, иначе сценарий невозможно
+                использовать как нормальную учебную сессию.
+              </p>
+            </div>
           ) : (
             <div className="tasks-list">
               {tasks.map((task) => (
                 <article className="task-card" key={task.id}>
                   <div className="task-card__header">
-                    <h3>{task.title}</h3>
+                    <div>
+                      <h3>{task.title}</h3>
+
+                      <div className="scenario-card__meta">
+                        <span>{getTaskTypeLabel(task.taskType)}</span>
+                      </div>
+                    </div>
 
                     <button
                       className="button-ghost-danger"
@@ -286,12 +312,12 @@ export function ScenarioDetailsPage() {
 
                   <p>{task.description}</p>
 
-                  <div className="scenario-card__meta">
-                    <span>{task.taskType}</span>
-                    {task.expectedResult && (
-                      <span>Ожидаемый результат: {task.expectedResult}</span>
-                    )}
-                  </div>
+                  {task.expectedResult && (
+                    <div className="info-box">
+                      <h3>Ожидаемый результат</h3>
+                      <p>{task.expectedResult}</p>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

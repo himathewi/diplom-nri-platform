@@ -428,6 +428,10 @@ p {
   gap: 16px;
 }
 
+.task-card .info-box {
+  margin-top: 16px;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
