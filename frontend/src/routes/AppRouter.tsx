@@ -10,6 +10,7 @@ import { CreateScenarioPage } from '../pages/Scenarios/CreateScenarioPage'
 import { ScenarioDetailsPage } from '../pages/Scenarios/ScenarioDetailsPage'
 import { ScenariosPage } from '../pages/Scenarios/ScenariosPage'
 import { TeamsPage } from '../pages/Teams/TeamPage'
+import { TeamDetailsPage } from '../pages/Teams/TeamDetailsPage'
 
 export function AppRouter() {
   return (
@@ -23,6 +24,7 @@ export function AppRouter() {
           <Route path="/profile" element={<ProfilePage />} />
 
           <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/teams/:id" element={<TeamDetailsPage />} />
 
           <Route path="/scenarios" element={<ScenariosPage />} />
           <Route path="/scenarios/create" element={<CreateScenarioPage />} />
