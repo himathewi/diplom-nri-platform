@@ -291,3 +291,76 @@ code {
 .task-card p {
   margin: 0 0 14px;
 }
+.form-card {
+  display: grid;
+  gap: 20px;
+  max-width: 780px;
+  padding: 28px;
+  border: 1px solid #dfe6f1;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(18 38 63 / 6%);
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.form-field span {
+  color: #344054;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cfd8e6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #172033;
+  background: #ffffff;
+  font: inherit;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: #1f6feb;
+  outline: 3px solid rgb(31 111 235 / 14%);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #cfd8e6;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #40516b;
+  font-weight: 600;
+}
+
+.button-secondary:hover {
+  background: #f4f7fb;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
