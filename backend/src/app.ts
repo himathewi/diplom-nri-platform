@@ -10,6 +10,8 @@ import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { teamsRoutes } from "./modules/teams/teams.routes";
 import { scenariosRoutes } from "./modules/scenarios/scenarios.routes";
+import { sessionsRoutes } from "./modules/sessions/sessions.routes";
+import { sessionEventsRoutes } from "./modules/session-events/session-events.routes";
 
 import { characterRoutes } from "./modules/characters/character.routes";
 import { characterHpRoutes } from "./modules/character-hp/character-hp.routes";
@@ -127,6 +129,8 @@ export async function buildApp() {
   await app.register(usersRoutes);
   await app.register(teamsRoutes);
   await app.register(scenariosRoutes);
+  await app.register(sessionsRoutes);
+  await app.register(sessionEventsRoutes);
 
   await app.register(characterSheetRoutes, {
     characterSheetService
