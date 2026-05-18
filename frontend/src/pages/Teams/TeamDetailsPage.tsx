@@ -127,17 +127,21 @@ export function TeamDetailsPage() {
     <section>
       <div className="page-header">
         <div>
-          <Link className="text-link" to="/teams">
+            <Link className="text-link" to="/teams">
             ← К списку команд
-          </Link>
+            </Link>
 
-          <p className="eyebrow">Команда</p>
-          <h1>{selectedTeam.name}</h1>
+            <p className="eyebrow">Команда</p>
+            <h1>{selectedTeam.name}</h1>
 
-          {selectedTeam.companyName && <p>{selectedTeam.companyName}</p>}
-          {selectedTeam.description && <p>{selectedTeam.description}</p>}
+            {selectedTeam.companyName && <p>{selectedTeam.companyName}</p>}
+            {selectedTeam.description && <p>{selectedTeam.description}</p>}
         </div>
-      </div>
+
+        <Link className="button-secondary" to="/teams/join">
+            Вступить по коду
+        </Link>
+        </div>
 
       <div className="details-grid">
         <article className="details-card">
