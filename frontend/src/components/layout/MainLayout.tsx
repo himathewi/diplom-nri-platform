@@ -1,9 +1,9 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuthStore } from '../../stores/authStore'
 
 const navItems = [
   { to: '/', label: 'Главная' },
-  { to: '/login', label: 'Вход' },
-  { to: '/register', label: 'Регистрация' },
   { to: '/teams', label: 'Команды' },
   { to: '/scenarios', label: 'Сценарии' },
   { to: '/sessions', label: 'Сессии' },
@@ -11,6 +11,19 @@ const navItems = [
 ]
 
 export function MainLayout() {
+  const {
+    user,
+    isAuthenticated,
+    loadCurrentUser,
+    logout,
+  } = useAuthStore()
+
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      void loadCurrentUser()
+    }
+  }, [isAuthenticated, user, loadCurrentUser])
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -31,6 +44,26 @@ export function MainLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="app-user">
+          {user ? (
+            <>
+              <span>{user.name}</span>
+              <button className="button-link" type="button" onClick={logout}>
+                Выйти
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink className="app-nav__link" to="/login">
+                Вход
+              </NavLink>
+              <NavLink className="app-nav__link" to="/register">
+                Регистрация
+              </NavLink>
+            </>
+          )}
+        </div>
       </header>
 
       <main className="app-main">

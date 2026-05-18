@@ -448,3 +448,34 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #526173;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.button-link {
+  border: 0;
+  background: transparent;
+  color: #1f6feb;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.button-link:hover {
+  color: #185abc;
+}
+
+.auth-card {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.auth-form {
+  margin-top: 26px;
+}
