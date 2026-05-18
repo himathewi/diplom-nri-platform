@@ -9,6 +9,7 @@ import { ProfilePage } from '../pages/ProfilePage'
 import { CreateScenarioPage } from '../pages/Scenarios/CreateScenarioPage'
 import { ScenarioDetailsPage } from '../pages/Scenarios/ScenarioDetailsPage'
 import { ScenariosPage } from '../pages/Scenarios/ScenariosPage'
+import { TeamsPage } from '../pages/Teams/TeamPage'
 
 export function AppRouter() {
   return (
@@ -21,15 +22,7 @@ export function AppRouter() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 
-          <Route
-            path="/teams"
-            element={
-              <PlaceholderPage
-                title="Команды"
-                description="Здесь будет интерфейс создания команд и управления участниками."
-              />
-            }
-          />
+          <Route path="/teams" element={<TeamsPage />} />
 
           <Route path="/scenarios" element={<ScenariosPage />} />
           <Route path="/scenarios/create" element={<CreateScenarioPage />} />

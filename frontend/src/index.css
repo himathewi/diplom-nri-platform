@@ -479,3 +479,10 @@ button:disabled {
 .auth-form {
   margin-top: 26px;
 }
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+}
