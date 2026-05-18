@@ -2,7 +2,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { MainLayout } from '../components/layout/MainLayout'
 import { HomePage } from '../pages/HomePage'
 import { NotFoundPage } from '../pages/NotFoundPage'
-import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { LoginPage } from '../pages/Auth/LoginPage'
 import { RegisterPage } from '../pages/Auth/RegisterPage'
 import { ProfilePage } from '../pages/ProfilePage'
@@ -12,6 +11,7 @@ import { TeamsPage } from '../pages/Teams/TeamPage'
 import { CreateScenarioPage } from '../pages/Scenarios/CreateScenarioPage'
 import { ScenarioDetailsPage } from '../pages/Scenarios/ScenarioDetailsPage'
 import { ScenariosPage } from '../pages/Scenarios/ScenariosPage'
+import { SessionsPage } from '../pages/Sessions/SessionsPage'
 import { GuestRoute } from './GuestRoute'
 import { ProtectedRoute } from './ProtectedRoute'
 
@@ -38,15 +38,7 @@ export function AppRouter() {
             <Route path="/scenarios/create" element={<CreateScenarioPage />} />
             <Route path="/scenarios/:id" element={<ScenarioDetailsPage />} />
 
-            <Route
-              path="/sessions"
-              element={
-                <PlaceholderPage
-                  title="Сессии"
-                  description="Здесь будет интерфейс запуска, проведения и завершения игровых сессий."
-                />
-              }
-            />
+            <Route path="/sessions" element={<SessionsPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />
