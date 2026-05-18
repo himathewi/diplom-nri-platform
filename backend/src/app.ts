@@ -9,6 +9,7 @@ import { AppError } from "./shared/errors";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { teamsRoutes } from "./modules/teams/teams.routes";
+import { scenariosRoutes } from "./modules/scenarios/scenarios.routes";
 
 import { characterRoutes } from "./modules/characters/character.routes";
 import { characterHpRoutes } from "./modules/character-hp/character-hp.routes";
@@ -125,6 +126,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(usersRoutes);
   await app.register(teamsRoutes);
+  await app.register(scenariosRoutes);
 
   await app.register(characterSheetRoutes, {
     characterSheetService
