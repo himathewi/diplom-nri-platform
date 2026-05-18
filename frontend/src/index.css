@@ -510,3 +510,22 @@ button:disabled {
   margin: 0 0 12px;
   font-size: 15px;
 }
+.info-box {
+  padding: 18px;
+  border: 1px solid #c7d7f2;
+  border-radius: 14px;
+  background: #f3f7ff;
+}
+
+.info-box h3 {
+  margin: 0 0 8px;
+}
+
+.info-box p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.info-box p + p {
+  margin-top: 10px;
+}
