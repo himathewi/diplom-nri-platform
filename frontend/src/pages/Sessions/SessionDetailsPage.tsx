@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
+import { useSessionEventsStore } from '../../stores/sessionEventsStore'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useSessionsStore } from '../../stores/sessionsStore'
+import type { SessionEventType } from '../../types/sessionEvent'
 
 const statusLabels: Record<string, string> = {
   PLANNED: 'Запланирована',
@@ -25,6 +27,18 @@ function getStatusLabel(status: string) {
 function getDomainLabel(domain: string) {
   return domainLabels[domain] ?? domain
 }
+const eventTypeLabels: Record<string, string> = {
+  PRODUCTION_PROBLEM: 'Производственная проблема',
+  WEATHER_CHANGE: 'Изменение погодных условий',
+  RESOURCE_LIMIT: 'Ограничение ресурсов',
+  EQUIPMENT_FAILURE: 'Сбой оборудования',
+  TEAM_CONFLICT: 'Командный конфликт',
+  INFORMATION_UPDATE: 'Информационное обновление',
+}
+
+function getEventTypeLabel(eventType: string) {
+  return eventTypeLabels[eventType] ?? eventType
+}
 
 export function SessionDetailsPage() {
   const { id } = useParams()
@@ -42,6 +56,23 @@ export function SessionDetailsPage() {
     clearError,
   } = useSessionsStore()
 
+  const {
+    events,
+    isLoading: isEventsLoading,
+    error: eventsError,
+    fetchSessionEvents,
+    createSessionEvent,
+    deleteSessionEvent,
+    clearEvents,
+    clearError: clearEventsError,
+  } = useSessionEventsStore()
+  
+  const [eventTitle, setEventTitle] = useState('')
+  const [eventDescription, setEventDescription] = useState('')
+  const [eventType, setEventType] =
+    useState<SessionEventType>('PRODUCTION_PROBLEM')
+  const [eventImpact, setEventImpact] = useState('')
+
   useEffect(() => {
     if (id) {
       void fetchSessionById(id)
@@ -52,6 +83,60 @@ export function SessionDetailsPage() {
       clearError()
     }
   }, [id, fetchSessionById, clearSelectedSession, clearError])
+
+  useEffect(() => {
+    if (id) {
+      void fetchSessionEvents(id)
+    }
+
+    return () => {
+      clearEvents()
+      clearEventsError()
+    }
+  }, [id, fetchSessionEvents, clearEvents, clearEventsError])
+
+  async function handleAddEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clearEventsError()
+
+    if (!id || selectedSession?.status !== 'ACTIVE') {
+      return
+    }
+
+    const normalizedTitle = eventTitle.trim()
+    const normalizedDescription = eventDescription.trim()
+    const normalizedImpact = eventImpact.trim()
+
+    if (!normalizedTitle || !normalizedDescription) {
+      return
+    }
+
+    const createdEvent = await createSessionEvent(id, {
+      title: normalizedTitle,
+      description: normalizedDescription,
+      eventType,
+      impact: normalizedImpact || null,
+    })
+
+    if (!createdEvent) {
+      return
+    }
+
+    setEventTitle('')
+    setEventDescription('')
+    setEventType('PRODUCTION_PROBLEM')
+    setEventImpact('')
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    const confirmed = window.confirm('Удалить событие сессии?')
+
+    if (!confirmed) {
+      return
+    }
+
+    await deleteSessionEvent(eventId)
+  }
 
   async function handleStartSession() {
     if (!id) {
@@ -93,6 +178,7 @@ export function SessionDetailsPage() {
     await deleteSession(id)
     navigate('/sessions')
   }
+  
 
   if (!id) {
     return (
@@ -299,14 +385,142 @@ export function SessionDetailsPage() {
         <article className="details-card">
           <h2>События сессии</h2>
 
-          <div className="info-box">
-            <h3>Следующий этап</h3>
-            <p>
-              Здесь будет расположен журнал событий сессии: производственные
-              проблемы, изменения условий, технические сбои и информационные
-              обновления от модератора.
-            </p>
-          </div>
+          {selectedSession.status === 'PLANNED' && (
+            <div className="info-box">
+              <h3>Сессия ещё не запущена</h3>
+              <p>
+                Запустите сессию, чтобы модератор мог добавлять события и фиксировать
+                изменения производственной ситуации.
+              </p>
+            </div>
+          )}
+
+          {selectedSession.status === 'ACTIVE' && (
+            <form className="task-form session-event-form" onSubmit={handleAddEvent}>
+              <label className="form-field">
+                <span>Название события</span>
+                <input
+                  required
+                  maxLength={120}
+                  value={eventTitle}
+                  placeholder="Например: Сбой охлаждения партии продукции"
+                  onChange={(event) => setEventTitle(event.target.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Тип события</span>
+                <select
+                  value={eventType}
+                  onChange={(event) =>
+                    setEventType(event.target.value as SessionEventType)
+                  }
+                >
+                  <option value="PRODUCTION_PROBLEM">Производственная проблема</option>
+                  <option value="WEATHER_CHANGE">Изменение погодных условий</option>
+                  <option value="RESOURCE_LIMIT">Ограничение ресурсов</option>
+                  <option value="EQUIPMENT_FAILURE">Сбой оборудования</option>
+                  <option value="TEAM_CONFLICT">Командный конфликт</option>
+                  <option value="INFORMATION_UPDATE">Информационное обновление</option>
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>Описание</span>
+                <textarea
+                  required
+                  rows={4}
+                  value={eventDescription}
+                  placeholder="Опишите, что изменилось в ситуации и какие ограничения появились у участников."
+                  onChange={(event) => setEventDescription(event.target.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Влияние на сессию</span>
+                <textarea
+                  rows={3}
+                  value={eventImpact}
+                  placeholder="Например: команда должна перераспределить ресурсы или изменить маршрут."
+                  onChange={(event) => setEventImpact(event.target.value)}
+                />
+              </label>
+
+              {eventsError && (
+                <div className="alert-error">
+                  <p>{eventsError}</p>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button
+                  className="button-primary"
+                  type="submit"
+                  disabled={isEventsLoading}
+                >
+                  {isEventsLoading ? 'Сохранение...' : 'Добавить событие'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {selectedSession.status === 'FINISHED' && (
+            <div className="info-box">
+              <h3>Сессия завершена</h3>
+              <p>
+                Журнал событий доступен только для просмотра и последующего анализа.
+              </p>
+            </div>
+          )}
+
+          {isEventsLoading && events.length === 0 && <p>Загрузка событий...</p>}
+
+          {!isEventsLoading && events.length === 0 && (
+            <div className="empty-state">
+              <h2>Событий пока нет</h2>
+              <p>
+                Во время активной сессии модератор сможет добавлять события, которые
+                меняют условия сценария и требуют решений участников.
+              </p>
+            </div>
+          )}
+
+          {events.length > 0 && (
+            <div className="events-list">
+              {events.map((sessionEvent) => (
+                <article className="event-card" key={sessionEvent.id}>
+                  <div className="task-card__header">
+                    <div>
+                      <h3>{sessionEvent.title}</h3>
+
+                      <div className="scenario-card__meta">
+                        <span>{getEventTypeLabel(sessionEvent.eventType)}</span>
+                      </div>
+                    </div>
+
+                    {selectedSession.status === 'ACTIVE' && (
+                      <button
+                        className="button-ghost-danger"
+                        type="button"
+                        onClick={() => handleDeleteEvent(sessionEvent.id)}
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+
+                  <p>{sessionEvent.description}</p>
+
+                  {sessionEvent.impact && (
+                    <div className="info-box">
+                      <h3>Влияние</h3>
+                      <p>{sessionEvent.impact}</p>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </article>
       </div>
     </section>
