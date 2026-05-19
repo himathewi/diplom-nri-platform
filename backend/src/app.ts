@@ -13,6 +13,7 @@ import { scenariosRoutes } from "./modules/scenarios/scenarios.routes";
 import { sessionsRoutes } from "./modules/sessions/sessions.routes";
 import { sessionEventsRoutes } from "./modules/session-events/session-events.routes";
 import { decisionsRoutes } from "./modules/decisions/decisions.routes";
+import { teamMetricsRoutes } from './modules/team-metrics/team-metrics.routes'
 
 import { characterRoutes } from "./modules/characters/character.routes";
 import { characterHpRoutes } from "./modules/character-hp/character-hp.routes";
@@ -133,6 +134,7 @@ export async function buildApp() {
   await app.register(sessionsRoutes);
   await app.register(sessionEventsRoutes);
   await app.register(decisionsRoutes);
+  await app.register(teamMetricsRoutes)
 
   await app.register(characterSheetRoutes, {
     characterSheetService

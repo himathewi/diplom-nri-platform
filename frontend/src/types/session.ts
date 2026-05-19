@@ -110,9 +110,10 @@ export type TeamMetricSummary = {
   id: string
   sessionId: string
   communicationScore: number
-  decisionMakingScore: number
+  decisionSpeedScore: number
+  roleDistributionScore: number
+  conflictResolutionScore: number
   leadershipScore: number
-  cooperationScore: number
   comment: string | null
   createdAt: string
   updatedAt: string
