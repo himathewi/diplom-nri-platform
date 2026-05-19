@@ -40,6 +40,7 @@ export type EquippedItems = Record<EquipmentSlot, string | null>
 
 export type Character = {
   id: string
+  userId?: string | null
 
   name: string
   race: string

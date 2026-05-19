@@ -5,22 +5,24 @@ import {
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
 import type { CurrentUser } from '../../shared/types'
-import { sessionEventsService } from './session-events.service'
+import { reportsService } from './reports.service'
 import {
-  createSessionEventSchema,
-  sessionEventParamsSchema,
-  sessionEventSessionParamsSchema,
-  updateSessionEventSchema,
-} from './session-events.schemas'
+  createReportSchema,
+  reportParamsSchema,
+  reportSessionParamsSchema,
+  updateReportSchema,
+} from './reports.schemas'
 import {
-  SessionEventForbiddenError,
-  SessionEventNotFoundError,
-  SessionEventSessionAlreadyFinishedError,
-  SessionEventSessionNotActiveError,
-  SessionEventSessionNotFoundError,
-} from './session-events.errors'
+  ReportAlreadyExistsError,
+  ReportForbiddenError,
+  ReportNotFoundError,
+  ReportSessionNotFinishedError,
+  ReportSessionNotFoundError,
+} from './reports.errors'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
+function getCurrentUserOrUnauthorized(
+  request: Parameters<typeof getAuthUserId>[0],
+): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
@@ -34,25 +36,25 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
   }
 }
 
-function handleSessionEventError(error: unknown, reply: FastifyReply) {
+function handleReportError(error: unknown, reply: FastifyReply) {
   if (
-    error instanceof SessionEventNotFoundError ||
-    error instanceof SessionEventSessionNotFoundError
+    error instanceof ReportNotFoundError ||
+    error instanceof ReportSessionNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
     })
   }
 
-  if (error instanceof SessionEventForbiddenError) {
+  if (error instanceof ReportForbiddenError) {
     return reply.status(403).send({
       message: error.message,
     })
   }
 
   if (
-    error instanceof SessionEventSessionNotActiveError ||
-    error instanceof SessionEventSessionAlreadyFinishedError
+    error instanceof ReportAlreadyExistsError ||
+    error instanceof ReportSessionNotFinishedError
   ) {
     return reply.status(409).send({
       message: error.message,
@@ -62,16 +64,14 @@ function handleSessionEventError(error: unknown, reply: FastifyReply) {
   throw error
 }
 
-export async function sessionEventsRoutes(app: FastifyInstance) {
+export async function reportsRoutes(app: FastifyInstance) {
   app.get(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/report',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
+      const paramsParsed = reportSessionParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -89,25 +89,25 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const events = await sessionEventsService.getSessionEvents(
+        const report = await reportsService.getSessionReport(
           paramsParsed.data.sessionId,
           currentUser,
         )
 
-        return reply.status(200).send(events)
+        return reply.status(200).send(report)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleReportError(error, reply)
       }
     },
   )
 
   app.get(
-    '/session-events/:id',
+    '/reports/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = reportParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -125,28 +125,26 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.getSessionEventById(
+        const report = await reportsService.getReportById(
           paramsParsed.data.id,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(report)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleReportError(error, reply)
       }
     },
   )
 
   app.post(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/report',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
-      const bodyParsed = createSessionEventSchema.safeParse(request.body)
+      const paramsParsed = reportSessionParamsSchema.safeParse(request.params)
+      const bodyParsed = createReportSchema.safeParse(request.body ?? {})
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -171,27 +169,27 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.createSessionEvent(
+        const report = await reportsService.createReport(
           paramsParsed.data.sessionId,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(201).send(event)
+        return reply.status(201).send(report)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleReportError(error, reply)
       }
     },
   )
 
   app.patch(
-    '/session-events/:id',
+    '/reports/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
-      const bodyParsed = updateSessionEventSchema.safeParse(request.body)
+      const paramsParsed = reportParamsSchema.safeParse(request.params)
+      const bodyParsed = updateReportSchema.safeParse(request.body)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -216,26 +214,26 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.updateSessionEvent(
+        const report = await reportsService.updateReport(
           paramsParsed.data.id,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(report)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleReportError(error, reply)
       }
     },
   )
 
   app.delete(
-    '/session-events/:id',
+    '/reports/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = reportParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -253,14 +251,11 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        await sessionEventsService.deleteSessionEvent(
-          paramsParsed.data.id,
-          currentUser,
-        )
+        await reportsService.deleteReport(paramsParsed.data.id, currentUser)
 
         return reply.status(204).send()
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleReportError(error, reply)
       }
     },
   )

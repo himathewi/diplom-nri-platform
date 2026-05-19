@@ -16,14 +16,20 @@ import {
   SessionParticipantNotFoundError,
   TeamNotFoundForSessionError,
 } from './sessions.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 function canManageSessions(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+}
+
+function canManageSession(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
+  )
 }
 
 function canViewAllSessions(currentUser: CurrentUser) {
@@ -32,6 +38,44 @@ function canViewAllSessions(currentUser: CurrentUser) {
     currentUser.role === 'MODERATOR' ||
     currentUser.role === 'EXPERT'
   )
+}
+
+function assertCanManageSession(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  if (!canManageSession(session, currentUser)) {
+    throw new SessionForbiddenError()
+  }
+}
+
+function assertSessionCanChangeSetup(session: { id: string; status: string }) {
+  if (session.status === 'ACTIVE') {
+    throw new SessionAlreadyStartedError(session.id)
+  }
+
+  if (session.status === 'FINISHED') {
+    throw new SessionAlreadyFinishedError(session.id)
+  }
+}
+
+function assertCharacterCanJoinSession(
+  session: NonNullable<Awaited<ReturnType<typeof sessionsRepository.findById>>>,
+  character: NonNullable<
+    Awaited<ReturnType<typeof sessionsRepository.findCharacterById>>
+  >,
+) {
+  if (!session.teamId) {
+    return
+  }
+
+  const isTeamMemberCharacter = session.team?.members.some(
+    (member) => member.userId === character.userId,
+  )
+
+  if (!isTeamMemberCharacter) {
+    throw new SessionForbiddenError()
+  }
 }
 
 async function validateScenario(scenarioId: string) {
@@ -119,9 +163,8 @@ export const sessionsService = {
       throw new SessionNotFoundError(id)
     }
 
-    if (session.status === 'FINISHED') {
-      throw new SessionAlreadyFinishedError(id)
-    }
+    assertCanManageSession(session, currentUser)
+    assertSessionCanChangeSetup(session)
 
     if (data.scenarioId) {
       await validateScenario(data.scenarioId)
@@ -159,6 +202,8 @@ export const sessionsService = {
       throw new SessionNotFoundError(id)
     }
 
+    assertCanManageSession(session, currentUser)
+
     if (session.status === 'ACTIVE') {
       throw new SessionAlreadyStartedError(id)
     }
@@ -180,6 +225,8 @@ export const sessionsService = {
     if (!session) {
       throw new SessionNotFoundError(id)
     }
+
+    assertCanManageSession(session, currentUser)
 
     if (session.status === 'FINISHED') {
       throw new SessionAlreadyFinishedError(id)
@@ -207,15 +254,16 @@ export const sessionsService = {
       throw new SessionNotFoundError(sessionId)
     }
 
-    if (session.status === 'FINISHED') {
-      throw new SessionAlreadyFinishedError(sessionId)
-    }
+    assertCanManageSession(session, currentUser)
+    assertSessionCanChangeSetup(session)
 
     const character = await sessionsRepository.findCharacterById(data.characterId)
 
     if (!character) {
       throw new CharacterNotFoundForSessionError(data.characterId)
     }
+
+    assertCharacterCanJoinSession(session, character)
 
     const existingParticipant = await sessionsRepository.findParticipant(
       sessionId,
@@ -244,9 +292,8 @@ export const sessionsService = {
       throw new SessionNotFoundError(sessionId)
     }
 
-    if (session.status === 'FINISHED') {
-      throw new SessionAlreadyFinishedError(sessionId)
-    }
+    assertCanManageSession(session, currentUser)
+    assertSessionCanChangeSetup(session)
 
     const participant = await sessionsRepository.findParticipantById(participantId)
 

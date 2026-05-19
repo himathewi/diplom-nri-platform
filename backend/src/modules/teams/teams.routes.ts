@@ -4,6 +4,7 @@ import {
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
+import type { CurrentUser } from '../../shared/types'
 import { UserNotFoundError } from '../users/users.errors'
 import { teamsService } from './teams.service'
 import {
@@ -20,7 +21,7 @@ import {
   TeamNotFoundError,
 } from './teams.errors'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]) {
+function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
@@ -30,7 +31,7 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
 
   return {
     id: currentUserId,
-    role: currentUserRole,
+    role: currentUserRole as CurrentUser['role'],
   }
 }
 

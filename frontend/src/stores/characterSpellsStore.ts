@@ -9,7 +9,7 @@ import {
   updateSpell as updateSpellRequest,
   deleteSpell as deleteSpellRequest,
   setSpellSlotTotal as setSpellSlotTotalRequest,
-  useSpellSlot as useSpellSlotRequest,
+  useSpellSlot as spendSpellSlotRequest,
   restoreSpellSlot as restoreSpellSlotRequest,
 } from '../api/characterSpellsApi'
 
@@ -166,7 +166,7 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
     set({ isLoading: true, error: null })
 
     try {
-      await useSpellSlotRequest(characterId, level)
+      await spendSpellSlotRequest(characterId, level)
       await useCharacterProfileStore
         .getState()
         .refreshCharacterSheetAndProfile(characterId)

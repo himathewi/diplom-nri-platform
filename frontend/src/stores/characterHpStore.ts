@@ -5,7 +5,7 @@ import {
   healCharacter as healCharacterRequest,
   setTemporaryHp as setTemporaryHpRequest,
   levelUpCharacter as levelUpCharacterRequest,
-  useHitDie as useHitDieRequest,
+  useHitDie as spendHitDieRequest,
   restoreHitDie as restoreHitDieRequest,
   setCharacterInspiration as setCharacterInspirationRequest,
   addDeathSaveSuccess as addDeathSaveSuccessRequest,
@@ -129,7 +129,7 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
     set({ isLoading: true, error: null })
 
     try {
-      await useHitDieRequest(characterId)
+      await spendHitDieRequest(characterId)
       await useCharacterProfileStore
         .getState()
         .refreshCharacterSheetAndProfile(characterId)

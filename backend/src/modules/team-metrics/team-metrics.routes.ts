@@ -5,20 +5,20 @@ import {
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
 import type { CurrentUser } from '../../shared/types'
-import { sessionEventsService } from './session-events.service'
+import { teamMetricsService } from './team-metrics.service'
 import {
-  createSessionEventSchema,
-  sessionEventParamsSchema,
-  sessionEventSessionParamsSchema,
-  updateSessionEventSchema,
-} from './session-events.schemas'
+  createTeamMetricSchema,
+  teamMetricParamsSchema,
+  teamMetricSessionParamsSchema,
+  updateTeamMetricSchema,
+} from './team-metrics.schemas'
 import {
-  SessionEventForbiddenError,
-  SessionEventNotFoundError,
-  SessionEventSessionAlreadyFinishedError,
-  SessionEventSessionNotActiveError,
-  SessionEventSessionNotFoundError,
-} from './session-events.errors'
+  TeamMetricAlreadyExistsError,
+  TeamMetricForbiddenError,
+  TeamMetricNotFoundError,
+  TeamMetricSessionNotFoundError,
+  TeamMetricSessionNotReadyError,
+} from './team-metrics.errors'
 
 function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
@@ -34,25 +34,25 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
   }
 }
 
-function handleSessionEventError(error: unknown, reply: FastifyReply) {
+function handleTeamMetricError(error: unknown, reply: FastifyReply) {
   if (
-    error instanceof SessionEventNotFoundError ||
-    error instanceof SessionEventSessionNotFoundError
+    error instanceof TeamMetricNotFoundError ||
+    error instanceof TeamMetricSessionNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
     })
   }
 
-  if (error instanceof SessionEventForbiddenError) {
+  if (error instanceof TeamMetricForbiddenError) {
     return reply.status(403).send({
       message: error.message,
     })
   }
 
   if (
-    error instanceof SessionEventSessionNotActiveError ||
-    error instanceof SessionEventSessionAlreadyFinishedError
+    error instanceof TeamMetricAlreadyExistsError ||
+    error instanceof TeamMetricSessionNotReadyError
   ) {
     return reply.status(409).send({
       message: error.message,
@@ -62,16 +62,14 @@ function handleSessionEventError(error: unknown, reply: FastifyReply) {
   throw error
 }
 
-export async function sessionEventsRoutes(app: FastifyInstance) {
+export async function teamMetricsRoutes(app: FastifyInstance) {
   app.get(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/metrics',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
+      const paramsParsed = teamMetricSessionParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -89,25 +87,25 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const events = await sessionEventsService.getSessionEvents(
+        const metric = await teamMetricsService.getSessionMetric(
           paramsParsed.data.sessionId,
           currentUser,
         )
 
-        return reply.status(200).send(events)
+        return reply.status(200).send(metric)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleTeamMetricError(error, reply)
       }
     },
   )
 
   app.get(
-    '/session-events/:id',
+    '/team-metrics/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = teamMetricParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -125,28 +123,26 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.getSessionEventById(
+        const metric = await teamMetricsService.getMetricById(
           paramsParsed.data.id,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(metric)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleTeamMetricError(error, reply)
       }
     },
   )
 
   app.post(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/metrics',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
-      const bodyParsed = createSessionEventSchema.safeParse(request.body)
+      const paramsParsed = teamMetricSessionParamsSchema.safeParse(request.params)
+      const bodyParsed = createTeamMetricSchema.safeParse(request.body)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -171,27 +167,27 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.createSessionEvent(
+        const metric = await teamMetricsService.createMetric(
           paramsParsed.data.sessionId,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(201).send(event)
+        return reply.status(201).send(metric)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleTeamMetricError(error, reply)
       }
     },
   )
 
   app.patch(
-    '/session-events/:id',
+    '/team-metrics/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
-      const bodyParsed = updateSessionEventSchema.safeParse(request.body)
+      const paramsParsed = teamMetricParamsSchema.safeParse(request.params)
+      const bodyParsed = updateTeamMetricSchema.safeParse(request.body)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -216,26 +212,26 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.updateSessionEvent(
+        const metric = await teamMetricsService.updateMetric(
           paramsParsed.data.id,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(metric)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleTeamMetricError(error, reply)
       }
     },
   )
 
   app.delete(
-    '/session-events/:id',
+    '/team-metrics/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = teamMetricParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -253,14 +249,11 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        await sessionEventsService.deleteSessionEvent(
-          paramsParsed.data.id,
-          currentUser,
-        )
+        await teamMetricsService.deleteMetric(paramsParsed.data.id, currentUser)
 
         return reply.status(204).send()
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleTeamMetricError(error, reply)
       }
     },
   )

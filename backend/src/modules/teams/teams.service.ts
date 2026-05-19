@@ -12,11 +12,7 @@ import {
   TeamMemberNotFoundError,
   TeamNotFoundError,
 } from './teams.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 function canManageTeams(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'

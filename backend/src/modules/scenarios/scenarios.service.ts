@@ -9,11 +9,7 @@ import {
   ScenarioNotFoundError,
   ScenarioTaskNotFoundError,
 } from './scenarios.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 function canManageScenarios(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'

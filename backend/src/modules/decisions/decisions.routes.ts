@@ -5,20 +5,24 @@ import {
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
 import type { CurrentUser } from '../../shared/types'
-import { sessionEventsService } from './session-events.service'
+import { decisionsService } from './decisions.service'
 import {
-  createSessionEventSchema,
-  sessionEventParamsSchema,
-  sessionEventSessionParamsSchema,
-  updateSessionEventSchema,
-} from './session-events.schemas'
+  createDecisionSchema,
+  decisionParamsSchema,
+  decisionSessionParamsSchema,
+  evaluateDecisionSchema,
+  updateDecisionSchema,
+} from './decisions.schemas'
 import {
-  SessionEventForbiddenError,
-  SessionEventNotFoundError,
-  SessionEventSessionAlreadyFinishedError,
-  SessionEventSessionNotActiveError,
-  SessionEventSessionNotFoundError,
-} from './session-events.errors'
+  DecisionCharacterNotFoundError,
+  DecisionCharacterNotParticipantError,
+  DecisionEventNotFoundError,
+  DecisionEventSessionMismatchError,
+  DecisionForbiddenError,
+  DecisionNotFoundError,
+  DecisionSessionNotActiveError,
+  DecisionSessionNotFoundError,
+} from './decisions.errors'
 
 function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
@@ -34,27 +38,33 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
   }
 }
 
-function handleSessionEventError(error: unknown, reply: FastifyReply) {
+function handleDecisionError(error: unknown, reply: FastifyReply) {
   if (
-    error instanceof SessionEventNotFoundError ||
-    error instanceof SessionEventSessionNotFoundError
+    error instanceof DecisionNotFoundError ||
+    error instanceof DecisionSessionNotFoundError ||
+    error instanceof DecisionEventNotFoundError ||
+    error instanceof DecisionCharacterNotFoundError ||
+    error instanceof DecisionCharacterNotParticipantError
   ) {
     return reply.status(404).send({
       message: error.message,
     })
   }
 
-  if (error instanceof SessionEventForbiddenError) {
+  if (error instanceof DecisionForbiddenError) {
     return reply.status(403).send({
       message: error.message,
     })
   }
 
-  if (
-    error instanceof SessionEventSessionNotActiveError ||
-    error instanceof SessionEventSessionAlreadyFinishedError
-  ) {
+  if (error instanceof DecisionSessionNotActiveError) {
     return reply.status(409).send({
+      message: error.message,
+    })
+  }
+
+  if (error instanceof DecisionEventSessionMismatchError) {
+    return reply.status(400).send({
       message: error.message,
     })
   }
@@ -62,16 +72,14 @@ function handleSessionEventError(error: unknown, reply: FastifyReply) {
   throw error
 }
 
-export async function sessionEventsRoutes(app: FastifyInstance) {
+export async function decisionsRoutes(app: FastifyInstance) {
   app.get(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/decisions',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
+      const paramsParsed = decisionSessionParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -89,25 +97,25 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const events = await sessionEventsService.getSessionEvents(
+        const decisions = await decisionsService.getSessionDecisions(
           paramsParsed.data.sessionId,
           currentUser,
         )
 
-        return reply.status(200).send(events)
+        return reply.status(200).send(decisions)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleDecisionError(error, reply)
       }
     },
   )
 
   app.get(
-    '/session-events/:id',
+    '/decisions/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = decisionParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -125,28 +133,26 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.getSessionEventById(
+        const decision = await decisionsService.getDecisionById(
           paramsParsed.data.id,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(decision)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleDecisionError(error, reply)
       }
     },
   )
 
   app.post(
-    '/sessions/:sessionId/events',
+    '/sessions/:sessionId/decisions',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventSessionParamsSchema.safeParse(
-        request.params,
-      )
-      const bodyParsed = createSessionEventSchema.safeParse(request.body)
+      const paramsParsed = decisionSessionParamsSchema.safeParse(request.params)
+      const bodyParsed = createDecisionSchema.safeParse(request.body)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -171,27 +177,27 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.createSessionEvent(
+        const decision = await decisionsService.createDecision(
           paramsParsed.data.sessionId,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(201).send(event)
+        return reply.status(201).send(decision)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleDecisionError(error, reply)
       }
     },
   )
 
   app.patch(
-    '/session-events/:id',
+    '/decisions/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
-      const bodyParsed = updateSessionEventSchema.safeParse(request.body)
+      const paramsParsed = decisionParamsSchema.safeParse(request.params)
+      const bodyParsed = updateDecisionSchema.safeParse(request.body)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -216,26 +222,71 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const event = await sessionEventsService.updateSessionEvent(
+        const decision = await decisionsService.updateDecision(
           paramsParsed.data.id,
           bodyParsed.data,
           currentUser,
         )
 
-        return reply.status(200).send(event)
+        return reply.status(200).send(decision)
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleDecisionError(error, reply)
+      }
+    },
+  )
+
+  app.patch(
+    '/decisions/:id/evaluate',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = decisionParamsSchema.safeParse(request.params)
+      const bodyParsed = evaluateDecisionSchema.safeParse(request.body)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const decision = await decisionsService.evaluateDecision(
+          paramsParsed.data.id,
+          bodyParsed.data,
+          currentUser,
+        )
+
+        return reply.status(200).send(decision)
+      } catch (error) {
+        return handleDecisionError(error, reply)
       }
     },
   )
 
   app.delete(
-    '/session-events/:id',
+    '/decisions/:id',
     {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const paramsParsed = sessionEventParamsSchema.safeParse(request.params)
+      const paramsParsed = decisionParamsSchema.safeParse(request.params)
 
       if (!paramsParsed.success) {
         return reply.status(400).send({
@@ -253,14 +304,11 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
       }
 
       try {
-        await sessionEventsService.deleteSessionEvent(
-          paramsParsed.data.id,
-          currentUser,
-        )
+        await decisionsService.deleteDecision(paramsParsed.data.id, currentUser)
 
         return reply.status(204).send()
       } catch (error) {
-        return handleSessionEventError(error, reply)
+        return handleDecisionError(error, reply)
       }
     },
   )

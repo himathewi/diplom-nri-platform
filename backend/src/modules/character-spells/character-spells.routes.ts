@@ -14,9 +14,14 @@ import {
   SpellOwnershipError,
 } from '../characters/errors'
 import { SpellSlotConflictError } from '../calculation/spell-slots.rules'
+import { authMiddleware } from '../../middlewares/auth.middleware'
+import { characterAccessPreHandler } from '../characters/character-access.prehandler'
 
 
 export async function characterSpellsRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', authMiddleware)
+  app.addHook('preHandler', characterAccessPreHandler)
+
   // =========================================================
   // Spells
   // =========================================================
