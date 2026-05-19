@@ -3,6 +3,7 @@ import { useSessionEventsStore } from '../../stores/sessionEventsStore'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useSessionsStore } from '../../stores/sessionsStore'
 import type { SessionEventType } from '../../types/sessionEvent'
+import { useDecisionsStore } from '../../stores/decisionsStore'
 
 const statusLabels: Record<string, string> = {
   PLANNED: 'Запланирована',
@@ -66,12 +67,30 @@ export function SessionDetailsPage() {
     clearEvents,
     clearError: clearEventsError,
   } = useSessionEventsStore()
+
+  const {
+    decisions,
+    isLoading: isDecisionsLoading,
+    error: decisionsError,
+    fetchSessionDecisions,
+    createDecision,
+    evaluateDecision,
+    deleteDecision,
+    clearDecisions,
+    clearError: clearDecisionsError,
+  } = useDecisionsStore()
   
   const [eventTitle, setEventTitle] = useState('')
   const [eventDescription, setEventDescription] = useState('')
   const [eventType, setEventType] =
     useState<SessionEventType>('PRODUCTION_PROBLEM')
   const [eventImpact, setEventImpact] = useState('')
+
+  const [decisionEventId, setDecisionEventId] = useState('')
+  const [decisionDescription, setDecisionDescription] = useState('')
+  const [decisionResult, setDecisionResult] = useState('')
+  const [decisionScore, setDecisionScore] = useState(3)
+  const [moderatorComment, setModeratorComment] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -94,6 +113,17 @@ export function SessionDetailsPage() {
       clearEventsError()
     }
   }, [id, fetchSessionEvents, clearEvents, clearEventsError])
+
+  useEffect(() => {
+    if (id) {
+      void fetchSessionDecisions(id)
+    }
+
+    return () => {
+      clearDecisions()
+      clearDecisionsError()
+    }
+  }, [id, fetchSessionDecisions, clearDecisions, clearDecisionsError])
 
   async function handleAddEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -137,6 +167,62 @@ export function SessionDetailsPage() {
 
     await deleteSessionEvent(eventId)
   }
+
+  async function handleAddDecision(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault()
+  clearDecisionsError()
+
+  if (!id || selectedSession?.status !== 'ACTIVE') {
+    return
+  }
+
+  const normalizedDescription = decisionDescription.trim()
+  const normalizedResult = decisionResult.trim()
+
+  if (!normalizedDescription) {
+    return
+  }
+
+  const createdDecision = await createDecision(id, {
+    eventId: decisionEventId || null,
+    description: normalizedDescription,
+    result: normalizedResult || null,
+  })
+
+  if (!createdDecision) {
+    return
+  }
+
+  setDecisionEventId('')
+  setDecisionDescription('')
+  setDecisionResult('')
+}
+
+async function handleEvaluateDecision(decisionId: string) {
+  const normalizedComment = moderatorComment.trim()
+
+  const evaluatedDecision = await evaluateDecision(decisionId, {
+    score: decisionScore,
+    moderatorComment: normalizedComment || null,
+  })
+
+  if (!evaluatedDecision) {
+    return
+  }
+
+  setDecisionScore(3)
+  setModeratorComment('')
+}
+
+async function handleDeleteDecision(decisionId: string) {
+  const confirmed = window.confirm('Удалить решение?')
+
+  if (!confirmed) {
+    return
+  }
+
+  await deleteDecision(decisionId)
+}
 
   async function handleStartSession() {
     if (!id) {
@@ -516,6 +602,197 @@ export function SessionDetailsPage() {
                       <h3>Влияние</h3>
                       <p>{sessionEvent.impact}</p>
                     </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="details-card">
+          <h2>Решения участников</h2>
+
+          {selectedSession.status === 'PLANNED' && (
+            <div className="info-box">
+              <h3>Сессия ещё не запущена</h3>
+              <p>
+                Решения можно фиксировать только после запуска сессии и появления
+                сценарных событий.
+              </p>
+            </div>
+          )}
+
+          {selectedSession.status === 'ACTIVE' && (
+            <form className="task-form decision-form" onSubmit={handleAddDecision}>
+              <label className="form-field">
+                <span>Связанное событие</span>
+
+                <select
+                  value={decisionEventId}
+                  onChange={(event) => setDecisionEventId(event.target.value)}
+                >
+                  <option value="">Без привязки к событию</option>
+
+                  {events.map((sessionEvent) => (
+                    <option key={sessionEvent.id} value={sessionEvent.id}>
+                      {sessionEvent.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>Описание решения</span>
+
+                <textarea
+                  required
+                  rows={4}
+                  value={decisionDescription}
+                  placeholder="Опишите решение команды или участника по текущей ситуации."
+                  onChange={(event) => setDecisionDescription(event.target.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Результат решения</span>
+
+                <textarea
+                  rows={3}
+                  value={decisionResult}
+                  placeholder="Например: выбран альтернативный маршрут, перераспределены ресурсы, назначен ответственный."
+                  onChange={(event) => setDecisionResult(event.target.value)}
+                />
+              </label>
+
+              {decisionsError && (
+                <div className="alert-error">
+                  <p>{decisionsError}</p>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button
+                  className="button-primary"
+                  type="submit"
+                  disabled={isDecisionsLoading}
+                >
+                  {isDecisionsLoading ? 'Сохранение...' : 'Добавить решение'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {selectedSession.status === 'FINISHED' && (
+            <div className="info-box">
+              <h3>Сессия завершена</h3>
+              <p>
+                Решения доступны для просмотра и анализа. Новые решения после
+                завершения сессии не добавляются.
+              </p>
+            </div>
+          )}
+
+          {isDecisionsLoading && decisions.length === 0 && (
+            <p>Загрузка решений...</p>
+          )}
+
+          {!isDecisionsLoading && decisions.length === 0 && (
+            <div className="empty-state">
+              <h2>Решений пока нет</h2>
+              <p>
+                Во время активной сессии здесь будут фиксироваться решения участников
+                или команды по событиям сценария.
+              </p>
+            </div>
+          )}
+
+          {decisions.length > 0 && (
+            <div className="decisions-list">
+              {decisions.map((decision) => (
+                <article className="decision-card" key={decision.id}>
+                  <div className="task-card__header">
+                    <div>
+                      <h3>Решение #{decision.id}</h3>
+
+                      <div className="scenario-card__meta">
+                        {decision.eventId && <span>Событие: {decision.eventId}</span>}
+                        {decision.score !== null && decision.score !== undefined && (
+                          <span>Оценка: {decision.score} / 5</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedSession.status === 'ACTIVE' && (
+                      <button
+                        className="button-ghost-danger"
+                        type="button"
+                        onClick={() => handleDeleteDecision(decision.id)}
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+
+                  <p>{decision.description}</p>
+
+                  {decision.result && (
+                    <div className="info-box">
+                      <h3>Результат</h3>
+                      <p>{decision.result}</p>
+                    </div>
+                  )}
+
+                  {decision.moderatorComment && (
+                    <div className="info-box">
+                      <h3>Комментарий модератора</h3>
+                      <p>{decision.moderatorComment}</p>
+                    </div>
+                  )}
+
+                  {selectedSession.status === 'ACTIVE' && (
+                    <form
+                      className="decision-evaluation-form"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void handleEvaluateDecision(decision.id)
+                      }}
+                    >
+                      <label className="form-field">
+                        <span>Оценка решения</span>
+
+                        <input
+                          min={1}
+                          max={5}
+                          type="number"
+                          value={decisionScore}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            setDecisionScore(Math.min(5, Math.max(1, value)))
+                          }}
+                        />
+                      </label>
+
+                      <label className="form-field">
+                        <span>Комментарий модератора</span>
+
+                        <textarea
+                          rows={2}
+                          value={moderatorComment}
+                          placeholder="Кратко оцените качество решения."
+                          onChange={(event) => setModeratorComment(event.target.value)}
+                        />
+                      </label>
+
+                      <div className="form-actions">
+                        <button
+                          className="button-secondary"
+                          type="submit"
+                          disabled={isDecisionsLoading}
+                        >
+                          Оценить
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </article>
               ))}
