@@ -10,11 +10,7 @@ import {
   TeamMetricSessionNotFoundError,
   TeamMetricSessionNotReadyError,
 } from './team-metrics.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof teamMetricsRepository.findSessionById>
@@ -24,8 +20,14 @@ type TeamMetricForAccess = Awaited<
   ReturnType<typeof teamMetricsRepository.findById>
 >
 
-function canManageTeamMetrics(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+function canManageTeamMetrics(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
+  )
 }
 
 function canViewAllTeamMetrics(currentUser: CurrentUser) {
@@ -71,8 +73,11 @@ function assertCanViewSession(
   }
 }
 
-function assertCanManageTeamMetrics(currentUser: CurrentUser) {
-  if (!canManageTeamMetrics(currentUser)) {
+function assertCanManageTeamMetrics(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  if (!canManageTeamMetrics(session, currentUser)) {
     throw new TeamMetricForbiddenError()
   }
 }
@@ -121,14 +126,13 @@ export const teamMetricsService = {
     data: CreateTeamMetricInput,
     currentUser: CurrentUser,
   ) {
-    assertCanManageTeamMetrics(currentUser)
-
     const session = await teamMetricsRepository.findSessionById(sessionId)
 
     if (!session) {
       throw new TeamMetricSessionNotFoundError(sessionId)
     }
 
+    assertCanManageTeamMetrics(session, currentUser)
     assertSessionReadyForMetrics(session)
 
     const existingMetric = await teamMetricsRepository.findBySessionId(sessionId)
@@ -145,27 +149,27 @@ export const teamMetricsService = {
     data: UpdateTeamMetricInput,
     currentUser: CurrentUser,
   ) {
-    assertCanManageTeamMetrics(currentUser)
-
     const metric = await teamMetricsRepository.findById(id)
 
     if (!metric) {
       throw new TeamMetricNotFoundError(id)
     }
 
+    assertCanManageTeamMetrics(metric.session, currentUser)
     assertSessionReadyForMetrics(metric.session)
 
     return teamMetricsRepository.update(id, data)
   },
 
   async deleteMetric(id: string, currentUser: CurrentUser) {
-    assertCanManageTeamMetrics(currentUser)
-
     const metric = await teamMetricsRepository.findById(id)
 
     if (!metric) {
       throw new TeamMetricNotFoundError(id)
     }
+
+    assertCanManageTeamMetrics(metric.session, currentUser)
+    assertSessionReadyForMetrics(metric.session)
 
     return teamMetricsRepository.delete(id)
   },

@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { CharacterNotFoundError } from '../characters/errors'
 import { characterParamsSchema } from '../characters/character.schemas'
 import { CharacterSheetService } from './character-sheet.service'
+import { authMiddleware } from '../../middlewares/auth.middleware'
+import { characterAccessPreHandler } from '../characters/character-access.prehandler'
 
 type CharacterSheetRouteDeps = {
   characterSheetService: CharacterSheetService
@@ -17,6 +19,8 @@ export async function characterSheetRoutes(
   deps: CharacterSheetRouteDeps,
 ) {
   const { characterSheetService } = deps
+  app.addHook('preHandler', authMiddleware)
+  app.addHook('preHandler', characterAccessPreHandler)
 
   app.get(
     '/characters/:id/sheet',

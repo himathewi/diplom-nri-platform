@@ -20,8 +20,13 @@ import {
   ItemTemplateNotFoundError,
 } from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
+import { authMiddleware } from '../../middlewares/auth.middleware'
+import { characterAccessPreHandler } from '../characters/character-access.prehandler'
 
 export async function characterInventoryRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', authMiddleware)
+  app.addHook('preHandler', characterAccessPreHandler)
+
   // =========================================================
   // Items / Inventory
   // =========================================================

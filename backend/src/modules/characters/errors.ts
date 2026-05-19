@@ -10,6 +10,14 @@ export class CharacterNotFoundError extends NotFoundError {
   }
 }
 
+export class CharacterForbiddenError extends ForbiddenError {
+  constructor(id?: string) {
+    super('You do not have permission to access this character', {
+      characterId: id,
+    })
+  }
+}
+
 // Ошибка: атака не найдена
 export class AttackNotFoundError extends NotFoundError {
   constructor(id?: string) {

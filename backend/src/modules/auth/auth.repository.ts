@@ -28,7 +28,7 @@ export const authRepository = {
         email: data.email,
         password: data.password,
         name: data.name,
-        role: data.role,
+        role: 'PARTICIPANT',
       },
       select: {
         id: true,

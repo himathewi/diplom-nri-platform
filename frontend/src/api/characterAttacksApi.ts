@@ -31,20 +31,17 @@ export type CharacterAttackResponse = {
  * с frontend.
  */
 function mapAttackPayloadToBackend(data: Partial<NewAttack>) {
-  const {
-    id: _id,
-    source: _source,
-    itemId: _itemId,
-    attackBonus: _attackBonus,
-    damageBonusFinal: _damageBonusFinal,
-    ...payload
-  } = data as Partial<NewAttack> & {
+  const payload = { ...data } as Partial<NewAttack> & {
     id?: string
-    source?: 'manual' | 'item'
-    itemId?: string | null
     attackBonus?: number
     damageBonusFinal?: number
   }
+
+  delete payload.id
+  delete payload.source
+  delete payload.itemId
+  delete payload.attackBonus
+  delete payload.damageBonusFinal
 
   return removeUndefinedValues(payload)
 }

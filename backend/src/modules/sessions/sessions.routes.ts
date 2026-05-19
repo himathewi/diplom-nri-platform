@@ -4,6 +4,7 @@ import {
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
+import type { CurrentUser } from '../../shared/types'
 import { sessionsService } from './sessions.service'
 import {
   addSessionParticipantSchema,
@@ -25,7 +26,7 @@ import {
   TeamNotFoundForSessionError,
 } from './sessions.errors'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]) {
+function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
@@ -35,7 +36,7 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
 
   return {
     id: currentUserId,
-    role: currentUserRole,
+    role: currentUserRole as CurrentUser['role'],
   }
 }
 

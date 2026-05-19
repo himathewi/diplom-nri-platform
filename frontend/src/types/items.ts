@@ -176,7 +176,7 @@ export type CharacterItem = {
 
   isEquipped: boolean
   equippedSlot: EquipmentSlot | string | null
-  slot?: any
+  slot?: EquipmentSlot | string | null
 
   notes: string | null
 

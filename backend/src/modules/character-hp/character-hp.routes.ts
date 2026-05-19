@@ -9,8 +9,13 @@ import {
 import { characterHpService } from './character-hp.service'
 import { CharacterNotFoundError } from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
+import { authMiddleware } from '../../middlewares/auth.middleware'
+import { characterAccessPreHandler } from '../characters/character-access.prehandler'
 
 export async function characterHpRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', authMiddleware)
+  app.addHook('preHandler', characterAccessPreHandler)
+
   // Повысить уровень персонажа.
   // hpMode:
   // fixed — прибавить фиксированное значение HP, сейчас +5 для 1d8

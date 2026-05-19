@@ -5,11 +5,7 @@ import {
   UserForbiddenError,
   UserNotFoundError,
 } from './users.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 export const usersService = {
   async getUsers(currentUser: CurrentUser) {

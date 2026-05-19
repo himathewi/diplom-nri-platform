@@ -10,18 +10,20 @@ import {
   SessionEventSessionNotActiveError,
   SessionEventSessionNotFoundError,
 } from './session-events.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof sessionEventsRepository.findSessionById>
 >
 
-function canManageSessionEvents(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+function canManageSessionEvents(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
+  )
 }
 
 function canViewAllSessionEvents(currentUser: CurrentUser) {
@@ -57,8 +59,11 @@ function assertCanViewSession(
   }
 }
 
-function assertCanManageSessionEvents(currentUser: CurrentUser) {
-  if (!canManageSessionEvents(currentUser)) {
+function assertCanManageSessionEvents(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  if (!canManageSessionEvents(session, currentUser)) {
     throw new SessionEventForbiddenError()
   }
 }
@@ -103,14 +108,13 @@ export const sessionEventsService = {
     data: CreateSessionEventInput,
     currentUser: CurrentUser,
   ) {
-    assertCanManageSessionEvents(currentUser)
-
     const session = await sessionEventsRepository.findSessionById(sessionId)
 
     if (!session) {
       throw new SessionEventSessionNotFoundError(sessionId)
     }
 
+    assertCanManageSessionEvents(session, currentUser)
     assertSessionIsActive(session)
 
     return sessionEventsRepository.create(sessionId, data)
@@ -121,28 +125,26 @@ export const sessionEventsService = {
     data: UpdateSessionEventInput,
     currentUser: CurrentUser,
   ) {
-    assertCanManageSessionEvents(currentUser)
-
     const event = await sessionEventsRepository.findById(eventId)
 
     if (!event) {
       throw new SessionEventNotFoundError(eventId)
     }
 
+    assertCanManageSessionEvents(event.session, currentUser)
     assertSessionIsActive(event.session)
 
     return sessionEventsRepository.update(eventId, data)
   },
 
   async deleteSessionEvent(eventId: string, currentUser: CurrentUser) {
-    assertCanManageSessionEvents(currentUser)
-
     const event = await sessionEventsRepository.findById(eventId)
 
     if (!event) {
       throw new SessionEventNotFoundError(eventId)
     }
 
+    assertCanManageSessionEvents(event.session, currentUser)
     assertSessionIsActive(event.session)
 
     return sessionEventsRepository.delete(eventId)

@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 export type CharacterProfileEntity = Prisma.CharacterGetPayload<{
   select: {
     id: true
+    userId: true
 
     name: true
     race: true
@@ -46,6 +47,7 @@ export type AbilityName =
 
 export type CharacterProfileDto = {
   id: string
+  userId: string | null
 
   name: string
   race: string
@@ -81,6 +83,7 @@ export function toCharacterProfileDto(
 ): CharacterProfileDto {
   return {
     id: character.id,
+    userId: character.userId,
 
     name: character.name,
     race: character.race,

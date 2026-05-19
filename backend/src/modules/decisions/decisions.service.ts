@@ -14,11 +14,7 @@ import {
   DecisionSessionNotActiveError,
   DecisionSessionNotFoundError,
 } from './decisions.errors'
-
-type CurrentUser = {
-  id: string
-  role?: string | null
-}
+import type { CurrentUser } from '../../shared/types'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof decisionsRepository.findSessionById>
@@ -26,8 +22,14 @@ type SessionForAccess = Awaited<
 
 type DecisionForAccess = Awaited<ReturnType<typeof decisionsRepository.findById>>
 
-function canManageDecisions(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+function canManageDecisions(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
+  )
 }
 
 function canViewAllDecisions(currentUser: CurrentUser) {
@@ -63,8 +65,11 @@ function assertCanViewSession(
   }
 }
 
-function assertCanManageDecisions(currentUser: CurrentUser) {
-  if (!canManageDecisions(currentUser)) {
+function assertCanManageDecisions(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  if (!canManageDecisions(session, currentUser)) {
     throw new DecisionForbiddenError()
   }
 }
@@ -79,7 +84,7 @@ function canEditDecision(
   decision: NonNullable<DecisionForAccess>,
   currentUser: CurrentUser,
 ) {
-  return canManageDecisions(currentUser) || decision.userId === currentUser.id
+  return canManageDecisions(decision.session, currentUser) || decision.userId === currentUser.id
 }
 
 function canViewDecision(
@@ -155,12 +160,13 @@ async function validateCharacterBelongsToSession(
 function assertCanUseCharacter(
   character: Awaited<ReturnType<typeof validateCharacterBelongsToSession>>,
   currentUser: CurrentUser,
+  session: { moderatorId: string | null },
 ) {
   if (!character) {
     return
   }
 
-  if (canManageDecisions(currentUser)) {
+  if (canManageDecisions(session, currentUser)) {
     return
   }
 
@@ -217,7 +223,7 @@ export const decisionsService = {
       data.characterId,
     )
 
-    assertCanUseCharacter(character, currentUser)
+    assertCanUseCharacter(character, currentUser, session)
 
     return decisionsRepository.create(sessionId, currentUser.id, data)
   },
@@ -246,7 +252,7 @@ export const decisionsService = {
       data.characterId,
     )
 
-    assertCanUseCharacter(character, currentUser)
+    assertCanUseCharacter(character, currentUser, decision.session)
 
     return decisionsRepository.update(decisionId, data)
   },
@@ -256,13 +262,14 @@ export const decisionsService = {
     data: EvaluateDecisionInput,
     currentUser: CurrentUser,
   ) {
-    assertCanManageDecisions(currentUser)
-
     const decision = await decisionsRepository.findById(decisionId)
 
     if (!decision) {
       throw new DecisionNotFoundError(decisionId)
     }
+
+    assertCanManageDecisions(decision.session, currentUser)
+    assertSessionIsActive(decision.session)
 
     return decisionsRepository.evaluate(decisionId, data)
   },

@@ -3,21 +3,54 @@ import type {
   UpdateCharacterInput,
 } from './character.schemas'
 import { characterRepository } from './character.repository'
-import { CharacterNotFoundError } from './errors'
+import { CharacterForbiddenError, CharacterNotFoundError } from './errors'
 import { toCharacterProfileDto } from './character.mappers'
+import type { CurrentUser } from '../../shared/types'
+
+function canManageAnyCharacter(currentUser: CurrentUser) {
+  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+}
+
+function canAccessCharacter(
+  character: { userId: string | null },
+  currentUser: CurrentUser,
+) {
+  return canManageAnyCharacter(currentUser) || character.userId === currentUser.id
+}
+
+async function assertCanAccessCharacter(
+  characterId: string,
+  currentUser: CurrentUser,
+) {
+  const character = await characterRepository.findAccessById(characterId)
+
+  if (!character) {
+    throw new CharacterNotFoundError(characterId)
+  }
+
+  if (!canAccessCharacter(character, currentUser)) {
+    throw new CharacterForbiddenError(characterId)
+  }
+
+  return character
+}
 
 export const characterService = {
   // =========================================================
   // Characters
   // =========================================================
 
-  async getCharacters() {
-    const characters = await characterRepository.findAll()
+  async getCharacters(currentUser: CurrentUser) {
+    const characters = canManageAnyCharacter(currentUser)
+      ? await characterRepository.findAll()
+      : await characterRepository.findAllByUserId(currentUser.id)
 
     return characters.map(toCharacterProfileDto)
   },
 
-  async getCharacterById(id: string) {
+  async getCharacterById(id: string, currentUser: CurrentUser) {
+    await assertCanAccessCharacter(id, currentUser)
+
     const character = await characterRepository.findById(id)
 
     if (!character) {
@@ -27,7 +60,7 @@ export const characterService = {
     return toCharacterProfileDto(character)
   },
 
-  async createCharacter(data: CreateCharacterInput) {
+  async createCharacter(data: CreateCharacterInput, currentUser: CurrentUser) {
     // Если форма передала baseStats, стартовые HP считаются от их CON.
     // Без baseStats остаётся дефолтный CON 10.
     const constitution = data.baseStats?.constitution ?? 10
@@ -41,6 +74,7 @@ export const characterService = {
     // 1 уровень = 1 кость хитов 1d8.
     const character = await characterRepository.create({
       ...data,
+      userId: currentUser.id,
 
       currentHp: maxHp,
       temporaryHp: 0,
@@ -57,7 +91,13 @@ export const characterService = {
     return toCharacterProfileDto(character)
   },
 
-  async updateCharacter(id: string, data: UpdateCharacterInput) {
+  async updateCharacter(
+    id: string,
+    data: UpdateCharacterInput,
+    currentUser: CurrentUser,
+  ) {
+    await assertCanAccessCharacter(id, currentUser)
+
     const character = await characterRepository.findById(id)
 
     if (!character) {
@@ -69,7 +109,9 @@ export const characterService = {
     return toCharacterProfileDto(updatedCharacter)
   },
 
-  async deleteCharacter(id: string) {
+  async deleteCharacter(id: string, currentUser: CurrentUser) {
+    await assertCanAccessCharacter(id, currentUser)
+
     const existingCharacter = await characterRepository.findById(id)
 
     if (!existingCharacter) {
@@ -78,4 +120,6 @@ export const characterService = {
 
     await characterRepository.delete(id)
   },
+
+  assertCanAccessCharacter,
 }

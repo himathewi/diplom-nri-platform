@@ -20,6 +20,7 @@ import type {
 // Полный лист должен идти через GET /characters/:id/sheet.
 const characterProfileSelect = {
   id: true,
+  userId: true,
 
   name: true,
   race: true,
@@ -75,6 +76,8 @@ const characterSheetInclude = {
 // =========================================================
 
 type CreateCharacterRepositoryInput = CreateCharacterInput & {
+  userId: string
+
   currentHp: number
   temporaryHp: number
   inspiration: boolean
@@ -102,11 +105,33 @@ export const characterRepository = {
     })
   },
 
+  findAllByUserId(userId: string) {
+    return prisma.character.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: characterProfileSelect,
+    })
+  },
+
   // Получить базовый профиль персонажа по ID.
   findById(id: string) {
     return prisma.character.findUnique({
       where: { id },
       select: characterProfileSelect,
+    })
+  },
+
+  findAccessById(id: string) {
+    return prisma.character.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+      },
     })
   },
 
@@ -130,6 +155,7 @@ export const characterRepository = {
     return prisma.character.create({
       data: {
         name: data.name,
+        userId: data.userId,
         race: data.race,
         className: data.className,
         level: data.level ?? 1,

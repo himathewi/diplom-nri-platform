@@ -4,6 +4,7 @@ import {
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
+import type { CurrentUser } from '../../shared/types'
 import { usersService } from './users.service'
 import { updateUserSchema, userParamsSchema } from './users.schemas'
 import {
@@ -32,7 +33,7 @@ export async function usersRoutes(app: FastifyInstance) {
       try {
         const users = await usersService.getUsers({
           id: currentUserId,
-          role: currentUserRole,
+          role: currentUserRole as CurrentUser['role'],
         })
 
         return reply.status(200).send(users)
@@ -105,7 +106,7 @@ export async function usersRoutes(app: FastifyInstance) {
       try {
         const user = await usersService.getUserById(paramsParsed.data.id, {
           id: currentUserId,
-          role: currentUserRole,
+          role: currentUserRole as CurrentUser['role'],
         })
 
         return reply.status(200).send(user)
@@ -165,7 +166,7 @@ export async function usersRoutes(app: FastifyInstance) {
           bodyParsed.data,
           {
             id: currentUserId,
-            role: currentUserRole,
+            role: currentUserRole as CurrentUser['role'],
           },
         )
 
@@ -221,7 +222,7 @@ export async function usersRoutes(app: FastifyInstance) {
       try {
         await usersService.deleteUser(paramsParsed.data.id, {
           id: currentUserId,
-          role: currentUserRole,
+          role: currentUserRole as CurrentUser['role'],
         })
 
         return reply.status(204).send()
