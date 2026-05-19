@@ -1,13 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import type { UserRole } from '../../types/auth'
 
-const roleOptions: Array<{ value: UserRole; label: string }> = [
-  { value: 'PARTICIPANT', label: 'Участник' },
-  { value: 'MODERATOR', label: 'Модератор' },
-  { value: 'EXPERT', label: 'Эксперт' },
-]
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -17,7 +11,6 @@ export function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<UserRole>('PARTICIPANT')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -34,7 +27,6 @@ export function RegisterPage() {
       name: normalizedName,
       email: normalizedEmail,
       password,
-      role,
     })
 
     navigate('/profile')
@@ -48,8 +40,8 @@ export function RegisterPage() {
         <h1>Регистрация</h1>
 
         <p>
-          Создайте пользователя портала. Роль определяет доступные действия в
-          сценариях, командах и игровых сессиях.
+          Создайте пользователя портала. Базовая роль назначается системой, а расширенные
+          права выдаются администратором.
         </p>
 
         <form className="form-card auth-form" onSubmit={handleSubmit}>
@@ -89,19 +81,6 @@ export function RegisterPage() {
             />
           </label>
 
-          <label className="form-field">
-            <span>Роль</span>
-            <select
-              value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
-            >
-              {roleOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
 
           {error && (
             <div className="alert-error">
