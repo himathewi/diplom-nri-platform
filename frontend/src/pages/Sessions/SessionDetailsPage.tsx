@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useSessionsStore } from '../../stores/sessionsStore'
 import type { SessionEventType } from '../../types/sessionEvent'
 import { useDecisionsStore } from '../../stores/decisionsStore'
+import { useReportsStore } from '../../stores/reportsStore'
 
 const statusLabels: Record<string, string> = {
   PLANNED: 'Запланирована',
@@ -79,6 +80,17 @@ export function SessionDetailsPage() {
     clearDecisions,
     clearError: clearDecisionsError,
   } = useDecisionsStore()
+
+  const {
+    selectedReport,
+    isLoading: isReportLoading,
+    error: reportError,
+    fetchReportBySessionId,
+    createReport,
+    deleteReport,
+    clearSelectedReport,
+    clearError: clearReportError,
+  } = useReportsStore()
   
   const [eventTitle, setEventTitle] = useState('')
   const [eventDescription, setEventDescription] = useState('')
@@ -124,6 +136,23 @@ export function SessionDetailsPage() {
       clearDecisionsError()
     }
   }, [id, fetchSessionDecisions, clearDecisions, clearDecisionsError])
+
+  useEffect(() => {
+    if (id && selectedSession?.status === 'FINISHED') {
+      void fetchReportBySessionId(id)
+    }
+
+    return () => {
+      clearSelectedReport()
+      clearReportError()
+    }
+  }, [
+    id,
+    selectedSession?.status,
+    fetchReportBySessionId,
+    clearSelectedReport,
+    clearReportError,
+  ])
 
   async function handleAddEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -222,6 +251,28 @@ async function handleDeleteDecision(decisionId: string) {
   }
 
   await deleteDecision(decisionId)
+}
+
+async function handleCreateReport() {
+  if (!id || selectedSession?.status !== 'FINISHED') {
+    return
+  }
+
+  await createReport(id)
+}
+
+async function handleDeleteReport() {
+  if (!selectedReport) {
+    return
+  }
+
+  const confirmed = window.confirm('Удалить отчёт по сессии?')
+
+  if (!confirmed) {
+    return
+  }
+
+  await deleteReport(selectedReport.id)
 }
 
   async function handleStartSession() {
@@ -796,6 +847,100 @@ async function handleDeleteDecision(decisionId: string) {
                   )}
                 </article>
               ))}
+            </div>
+          )}
+        </article>
+        
+        <article className="details-card">
+          <h2>Итоговый отчёт</h2>
+
+          {selectedSession.status !== 'FINISHED' && (
+            <div className="info-box">
+              <h3>Отчёт пока недоступен</h3>
+              <p>
+                Итоговый отчёт формируется после завершения сессии, когда уже доступны
+                события, решения участников и оценки модератора.
+              </p>
+            </div>
+          )}
+
+          {selectedSession.status === 'FINISHED' && !selectedReport && (
+            <>
+              <div className="info-box">
+                <h3>Отчёт ещё не сформирован</h3>
+                <p>
+                  Сформируйте итоговый отчёт, чтобы зафиксировать результаты сценарной
+                  сессии, успешные действия, проблемные решения и рекомендации для
+                  команды.
+                </p>
+              </div>
+
+              {reportError && (
+                <div className="alert-error report-error">
+                  <p>{reportError}</p>
+                </div>
+              )}
+
+              <div className="form-actions report-actions">
+                <button
+                  className="button-primary"
+                  type="button"
+                  disabled={isReportLoading}
+                  onClick={handleCreateReport}
+                >
+                  {isReportLoading ? 'Формирование...' : 'Сформировать отчёт'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {selectedSession.status === 'FINISHED' && selectedReport && (
+            <div className="report-card">
+              <div className="task-card__header">
+                <div>
+                  <h3>Отчёт #{selectedReport.id}</h3>
+
+                  <div className="scenario-card__meta">
+                    <span>Сессия: {selectedReport.sessionId}</span>
+                    <span>Создан: {new Date(selectedReport.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <button
+                  className="button-ghost-danger"
+                  type="button"
+                  disabled={isReportLoading}
+                  onClick={handleDeleteReport}
+                >
+                  Удалить
+                </button>
+              </div>
+
+              <div className="report-section">
+                <h4>Краткое резюме</h4>
+                <p>{selectedReport.summary}</p>
+              </div>
+
+              {selectedReport.successfulActions && (
+                <div className="report-section">
+                  <h4>Успешные действия</h4>
+                  <p>{selectedReport.successfulActions}</p>
+                </div>
+              )}
+
+              {selectedReport.problemActions && (
+                <div className="report-section">
+                  <h4>Проблемные действия</h4>
+                  <p>{selectedReport.problemActions}</p>
+                </div>
+              )}
+
+              {selectedReport.recommendations && (
+                <div className="report-section">
+                  <h4>Рекомендации</h4>
+                  <p>{selectedReport.recommendations}</p>
+                </div>
+              )}
             </div>
           )}
         </article>
