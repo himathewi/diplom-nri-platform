@@ -764,3 +764,76 @@ button:disabled {
   margin: 12px 0 0;
   font-size: 15px;
 }
+.session-task-form {
+  margin-bottom: 18px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  font-size: 15px;
+}
+
+.session-tasks-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.session-task-card {
+  padding: 18px;
+  border: 1px solid #e4eaf3;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.session-task-card p {
+  margin: 12px 0 0;
+  font-size: 15px;
+}
+
+.task-check-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.task-check-panel h3 {
+  margin: 0 0 6px;
+}
+
+.task-check-panel p {
+  margin: 0;
+}
+
+.dice-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef6ff;
+}
+
+.dice-result span,
+.dice-result strong {
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

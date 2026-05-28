@@ -13,6 +13,7 @@ import { useSessionsStore } from '../../stores/sessionsStore'
 import type { SessionEventType } from '../../types/sessionEvent'
 import { useInvitationsStore } from '../../stores/invitationsStore'
 import type { InvitationType } from '../../types/invitation'  
+import { useSessionTasksStore } from '../../stores/sessionTasksStore'
 
 export function SessionDetailsPage() {
   const { id } = useParams()
@@ -74,7 +75,17 @@ export function SessionDetailsPage() {
     revokeInvitation,
     clearInvitationResult,
     clearError: clearInvitationsError,
-} = useInvitationsStore()
+  } = useInvitationsStore()
+  const {
+    sessionTasks,
+    isLoading: isSessionTasksLoading,
+    error: sessionTasksError,
+    fetchSessionTasks,
+    createSessionTask,
+    deleteSessionTask,
+    clearSessionTasks,
+    clearError: clearSessionTasksError,
+  } = useSessionTasksStore()
   
   const [eventTitle, setEventTitle] = useState('')
   const [eventDescription, setEventDescription] = useState('')
@@ -89,6 +100,21 @@ export function SessionDetailsPage() {
   const [moderatorComment, setModeratorComment] = useState('')
   const [invitationType, setInvitationType] = useState<InvitationType>('LINK')
   const [invitationExpiresInHours, setInvitationExpiresInHours] = useState(24)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDescriptionForParticipants, setTaskDescriptionForParticipants] =
+    useState('')
+  const [taskDescriptionForModerator, setTaskDescriptionForModerator] =
+    useState('')
+  const [taskDifficulty, setTaskDifficulty] = useState(3)
+  const [taskFatigueCost, setTaskFatigueCost] = useState(1)
+  const [isTaskVisible, setIsTaskVisible] = useState(true)
+
+  const [checkTaskId, setCheckTaskId] = useState('')
+  const [checkResult, setCheckResult] = useState<{
+    dice: number
+    difficulty: number
+    success: boolean
+  } | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -154,6 +180,16 @@ export function SessionDetailsPage() {
     clearInvitationResult,
     clearInvitationsError,
   ])
+  useEffect(() => {
+    if (id) {
+      void fetchSessionTasks(id)
+    }
+
+    return () => {
+      clearSessionTasks()
+      clearSessionTasksError()
+    }
+  }, [id, fetchSessionTasks, clearSessionTasks, clearSessionTasksError])
 
   async function handleAddEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -299,6 +335,71 @@ async function handleRevokeInvitation(invitationId: string) {
 
   await revokeInvitation(invitationId)
 }
+  async function handleCreateSessionTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clearSessionTasksError()
+
+    if (!id || selectedSession?.status !== 'PLANNED') {
+      return
+    }
+
+    const normalizedTitle = taskTitle.trim()
+    const normalizedParticipantDescription =
+      taskDescriptionForParticipants.trim()
+    const normalizedModeratorDescription = taskDescriptionForModerator.trim()
+
+    if (!normalizedTitle || !normalizedParticipantDescription) {
+      return
+    }
+
+    const createdTask = await createSessionTask(id, {
+      title: normalizedTitle,
+      descriptionForParticipants: normalizedParticipantDescription,
+      descriptionForModerator: normalizedModeratorDescription || undefined,
+      difficulty: taskDifficulty,
+      fatigueCost: taskFatigueCost,
+      isVisibleToParticipants: isTaskVisible,
+    })
+
+    if (!createdTask) {
+      return
+    }
+
+    setTaskTitle('')
+    setTaskDescriptionForParticipants('')
+    setTaskDescriptionForModerator('')
+    setTaskDifficulty(3)
+    setTaskFatigueCost(1)
+    setIsTaskVisible(true)
+  }
+
+  async function handleDeleteSessionTask(taskId: string) {
+    const confirmed = window.confirm('Удалить задание сессии?')
+
+    if (!confirmed) {
+      return
+    }
+
+    await deleteSessionTask(taskId)
+  }
+
+  function handleRollD6(taskId: string) {
+    const task = sessionTasks.find((item) => item.id === taskId)
+
+    if (!task) {
+      return
+    }
+
+    const dice = Math.floor(Math.random() * 6) + 1
+    const difficulty = task.difficulty ?? 1
+
+    setCheckTaskId(taskId)
+    setCheckResult({
+      dice,
+      difficulty,
+      success: dice >= difficulty,
+    })
+  }
 
   async function handleStartSession() {
     if (!id) {
@@ -503,6 +604,218 @@ async function handleRevokeInvitation(invitationId: string) {
                     <div className="info-box">
                       <h3>Ожидаемый результат</h3>
                       <p>{task.expectedResult}</p>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
+        <article className="details-card">
+          <h2>Задания сессии</h2>
+
+          {selectedSession.status === 'PLANNED' && (
+            <form className="task-form session-task-form" onSubmit={handleCreateSessionTask}>
+              <label className="form-field">
+                <span>Название задания</span>
+
+                <input
+                  required
+                  maxLength={120}
+                  value={taskTitle}
+                  placeholder="Например: Проверить условия хранения продукции"
+                  onChange={(event) => setTaskTitle(event.target.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Описание для участников</span>
+
+                <textarea
+                  required
+                  rows={3}
+                  value={taskDescriptionForParticipants}
+                  placeholder="Опишите задачу так, как её увидит команда."
+                  onChange={(event) =>
+                    setTaskDescriptionForParticipants(event.target.value)
+                  }
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Заметка модератора</span>
+
+                <textarea
+                  rows={3}
+                  value={taskDescriptionForModerator}
+                  placeholder="Скрытая подсказка, критерии выполнения или последствия ошибки."
+                  onChange={(event) =>
+                    setTaskDescriptionForModerator(event.target.value)
+                  }
+                />
+              </label>
+
+              <div className="form-row">
+                <label className="form-field">
+                  <span>Сложность</span>
+
+                  <input
+                    min={1}
+                    max={6}
+                    type="number"
+                    value={taskDifficulty}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      setTaskDifficulty(Math.min(6, Math.max(1, value)))
+                    }}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>Расход усталости</span>
+
+                  <input
+                    min={0}
+                    max={10}
+                    type="number"
+                    value={taskFatigueCost}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      setTaskFatigueCost(Math.min(10, Math.max(0, value)))
+                    }}
+                  />
+                </label>
+              </div>
+
+              <label className="checkbox-field">
+                <input
+                  checked={isTaskVisible}
+                  type="checkbox"
+                  onChange={(event) => setIsTaskVisible(event.target.checked)}
+                />
+
+                <span>Показывать участникам</span>
+              </label>
+
+              {sessionTasksError && (
+                <div className="alert-error">
+                  <p>{sessionTasksError}</p>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button
+                  className="button-primary"
+                  type="submit"
+                  disabled={isSessionTasksLoading}
+                >
+                  {isSessionTasksLoading ? 'Сохранение...' : 'Добавить задание'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {selectedSession.status === 'ACTIVE' && (
+            <div className="info-box">
+              <h3>Сессия активна</h3>
+              <p>
+                Участники могут выполнять открытые задания. Для демонстрации проверки
+                действия используется бросок к6: результат считается успешным, если
+                значение кубика не ниже сложности задания.
+              </p>
+            </div>
+          )}
+
+          {selectedSession.status === 'FINISHED' && (
+            <div className="info-box">
+              <h3>Сессия завершена</h3>
+              <p>
+                Задания доступны для просмотра и последующего анализа результатов.
+              </p>
+            </div>
+          )}
+
+          {isSessionTasksLoading && sessionTasks.length === 0 && (
+            <p>Загрузка заданий...</p>
+          )}
+
+          {!isSessionTasksLoading && sessionTasks.length === 0 && (
+            <div className="empty-state">
+              <h2>Заданий пока нет</h2>
+              <p>
+                Добавьте задания сессии, чтобы участники могли выполнять действия,
+                расходовать усталость и получать результат проверки.
+              </p>
+            </div>
+          )}
+
+          {sessionTasks.length > 0 && (
+            <div className="session-tasks-list">
+              {sessionTasks.map((task) => (
+                <article className="session-task-card" key={task.id}>
+                  <div className="task-card__header">
+                    <div>
+                      <h3>{task.title}</h3>
+
+                      <div className="scenario-card__meta">
+                        <span>Сложность: {task.difficulty ?? 1}</span>
+                        <span>Усталость: {task.fatigueCost ?? 0}</span>
+                        <span>
+                          {task.isVisibleToParticipants
+                            ? 'Видно участникам'
+                            : 'Скрыто от участников'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedSession.status === 'PLANNED' && (
+                      <button
+                        className="button-ghost-danger"
+                        type="button"
+                        disabled={isSessionTasksLoading}
+                        onClick={() => handleDeleteSessionTask(task.id)}
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+
+                  <p>{task.descriptionForParticipants}</p>
+
+                  {task.descriptionForModerator && (
+                    <div className="info-box">
+                      <h3>Заметка модератора</h3>
+                      <p>{task.descriptionForModerator}</p>
+                    </div>
+                  )}
+
+                  {selectedSession.status === 'ACTIVE' && (
+                    <div className="task-check-panel">
+                      <div>
+                        <h3>Проверка действия к6</h3>
+                        <p>
+                          Бросок должен быть не ниже сложности задания. Расход усталости:
+                          {` ${task.fatigueCost ?? 0}`}.
+                        </p>
+                      </div>
+
+                      <button
+                        className="button-secondary"
+                        type="button"
+                        onClick={() => handleRollD6(task.id)}
+                      >
+                        Бросить к6
+                      </button>
+
+                      {checkTaskId === task.id && checkResult && (
+                        <div className="dice-result">
+                          <span>Кубик: {checkResult.dice}</span>
+                          <span>Сложность: {checkResult.difficulty}</span>
+                          <strong>
+                            {checkResult.success ? 'Успех' : 'Неудача'}
+                          </strong>
+                        </div>
+                      )}
                     </div>
                   )}
                 </article>
