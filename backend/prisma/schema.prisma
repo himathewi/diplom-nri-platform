@@ -82,13 +82,16 @@ model User {
 
   characters           Character[]
   createdScenarios     Scenario[]           @relation("ScenarioCreator")
+  createdScenarioTasks ScenarioTask[]       @relation("ScenarioTaskCreator")
+  createdTaskTemplates TaskTemplate[]       @relation("TaskTemplateCreator")
+  createdItems         Item[]               @relation("ItemCreator")
+  createdRoleClasses   RoleClass[]          @relation("RoleClassCreator")
   moderatedSessions    GameSession[]        @relation("SessionModerator")
   teamMembers          TeamMember[]
   sessionParticipants  SessionParticipant[]
   decisions            Decision[]           @relation("DecisionAuthor")
   sentInvitations      SessionInvitation[]  @relation("InvitationSender")
   receivedInvitations  SessionInvitation[]  @relation("InvitationUser")
-  createdTaskTemplates TaskTemplate[]       @relation("TaskTemplateCreator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -96,14 +99,24 @@ model User {
 
 model RoleClass {
   id          String  @id @default(uuid())
-  name        String  @unique
+  name        String
   description String?
+
+  createdById String?
+  isPublic    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdBy User? @relation("RoleClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   characters      Character[]
   allowedSessions SessionAllowedRoleClass[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
 }
 
 model Character {
@@ -190,18 +203,22 @@ model ScenarioDirection {
 }
 
 model Scenario {
-  id               String             @id @default(uuid())
-  title            String
-  description      String
-  goal             String
-  difficulty       Int                @default(1)
-  sourceType       ScenarioSourceType @default(CUSTOM)
-  directionId      String?
-  createdById      String
-  isPublicTemplate Boolean            @default(false)
+  id                String             @id @default(uuid())
+  title             String
+  description       String
+  goal              String
+  difficulty        Int                @default(1)
+  sourceType        ScenarioSourceType @default(CUSTOM)
+  directionId       String?
+  createdById       String
+  basedOnScenarioId String?
+  isPublicTemplate  Boolean            @default(false)
 
   direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
   createdBy User               @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  basedOnScenario Scenario?  @relation("ScenarioCopies", fields: [basedOnScenarioId], references: [id], onDelete: SetNull)
+  copiedScenarios Scenario[] @relation("ScenarioCopies")
 
   tasks    ScenarioTask[]
   sessions GameSession[]
@@ -211,7 +228,9 @@ model Scenario {
 
   @@index([directionId])
   @@index([createdById])
+  @@index([basedOnScenarioId])
   @@index([sourceType])
+  @@index([isPublicTemplate])
 }
 
 model ScenarioTask {
@@ -221,13 +240,22 @@ model ScenarioTask {
   description String
   taskType    TaskType @default(MAIN)
 
+  createdById      String?
+  sourceTemplateId String?
+
   difficulty         Int     @default(1)
   fatigueCost        Int     @default(0)
   expectedResult     String?
   moderatorNotes     String?
   isVisibleByDefault Boolean @default(false)
 
-  scenario      Scenario                   @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true)
+
+  scenario       Scenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  createdBy      User?         @relation("ScenarioTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceTemplate TaskTemplate? @relation("ScenarioTaskSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+
   sessionTasks  SessionTask[]
   requiredItems ScenarioTaskRequiredItem[]
 
@@ -235,6 +263,10 @@ model ScenarioTask {
   updatedAt DateTime @updatedAt
 
   @@index([scenarioId])
+  @@index([createdById])
+  @@index([sourceTemplateId])
+  @@index([isPublic])
+  @@index([isActive])
 }
 
 model ScenarioTaskRequiredItem {
@@ -276,6 +308,7 @@ model TaskTemplate {
   createdBy User?              @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   requiredItems TaskTemplateRequiredItem[]
+  scenarioTasks ScenarioTask[]             @relation("ScenarioTaskSourceTemplate")
   sessionTasks  SessionTask[]
 
   createdAt DateTime @default(now())
@@ -283,6 +316,8 @@ model TaskTemplate {
 
   @@index([directionId])
   @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
 }
 
 model TaskTemplateRequiredItem {
@@ -405,8 +440,11 @@ model Item {
   type        ItemType @default(OTHER)
   description String?
 
-  isPublic Boolean @default(false)
-  isActive Boolean @default(true)
+  createdById String?
+  isPublic    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdBy User? @relation("ItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   allowedSessions  SessionAllowedItem[]
   participantItems ParticipantItem[]
@@ -417,6 +455,10 @@ model Item {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
 }
 
 model SessionAllowedItem {

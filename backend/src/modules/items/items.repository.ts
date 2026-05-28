@@ -74,6 +74,24 @@ export const itemsRepository = {
     })
   },
 
+  findVisibleCatalogItemsForModerator(moderatorId: string) {
+    return prisma.item.findMany({
+      where: {
+        OR: [
+          {
+            isPublic: true,
+          },
+          {
+            createdById: moderatorId,
+          },
+        ],
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  },
+
   findActiveCatalogItems() {
     return prisma.item.findMany({
       where: {
@@ -105,13 +123,18 @@ export const itemsRepository = {
     })
   },
 
-  createCatalogItem(data: CreateCatalogItemInput) {
+  createCatalogItem(
+    data: CreateCatalogItemInput,
+    createdById: string,
+    isPublic: boolean,
+  ) {
     return prisma.item.create({
       data: {
         name: data.name,
         type: data.type,
         description: data.description ?? null,
-        isPublic: data.isPublic,
+        createdById,
+        isPublic,
         isActive: data.isActive,
       },
     })

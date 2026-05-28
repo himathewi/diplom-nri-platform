@@ -43,8 +43,27 @@ const taskTemplateInclude = {
 } as const
 
 export const taskTemplatesRepository = {
-  findManyForManager() {
+  findManyForAdmin() {
     return prisma.taskTemplate.findMany({
+      include: taskTemplateInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+  },
+
+  findManyForModerator(moderatorId: string) {
+    return prisma.taskTemplate.findMany({
+      where: {
+        OR: [
+          {
+            isPublic: true,
+          },
+          {
+            createdById: moderatorId,
+          },
+        ],
+      },
       include: taskTemplateInclude,
       orderBy: {
         createdAt: 'desc',

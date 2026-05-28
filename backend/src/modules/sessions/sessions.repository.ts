@@ -43,11 +43,16 @@ const sessionInclude = {
   },
   participants: {
     include: {
+      user: {
+        select: userSelect,
+      },
       character: {
         include: {
           user: {
             select: userSelect,
           },
+          roleClass: true,
+          stats: true,
         },
       },
     },
@@ -84,6 +89,9 @@ export const sessionsRepository = {
       where: {
         OR: [
           {
+            moderatorId: userId,
+          },
+          {
             team: {
               members: {
                 some: {
@@ -95,9 +103,7 @@ export const sessionsRepository = {
           {
             participants: {
               some: {
-                character: {
-                  userId,
-                },
+                userId,
               },
             },
           },
@@ -138,6 +144,15 @@ export const sessionsRepository = {
       where: {
         id: characterId,
       },
+    })
+  },
+
+  findUserById(userId: string) {
+    return prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: userSelect,
     })
   },
 
@@ -189,12 +204,12 @@ export const sessionsRepository = {
     })
   },
 
-  findParticipant(sessionId: string, characterId: string) {
+  findParticipant(sessionId: string, userId: string) {
     return prisma.sessionParticipant.findUnique({
       where: {
-        sessionId_characterId: {
+        sessionId_userId: {
           sessionId,
-          characterId,
+          userId,
         },
       },
     })
@@ -212,14 +227,20 @@ export const sessionsRepository = {
     return prisma.sessionParticipant.create({
       data: {
         sessionId,
-        characterId: data.characterId,
+        userId: data.userId,
+        characterId: data.characterId ?? null,
       },
       include: {
+        user: {
+          select: userSelect,
+        },
         character: {
           include: {
             user: {
               select: userSelect,
             },
+            roleClass: true,
+            stats: true,
           },
         },
       },

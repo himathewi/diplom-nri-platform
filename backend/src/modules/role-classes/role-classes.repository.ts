@@ -9,6 +9,17 @@ const roleClassSelect = {
   id: true,
   name: true,
   description: true,
+  createdById: true,
+  isPublic: true,
+  isActive: true,
+  createdBy: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+    },
+  },
 } as const
 
 const sessionForAccessSelect = {
@@ -54,6 +65,25 @@ export const roleClassesRepository = {
     })
   },
 
+  findVisibleForModerator(moderatorId: string) {
+    return prisma.roleClass.findMany({
+      where: {
+        OR: [
+          {
+            isPublic: true,
+          },
+          {
+            createdById: moderatorId,
+          },
+        ],
+      },
+      select: roleClassSelect,
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  },
+
   findById(roleClassId: string) {
     return prisma.roleClass.findUnique({
       where: {
@@ -75,11 +105,14 @@ export const roleClassesRepository = {
     })
   },
 
-  create(data: CreateRoleClassInput) {
+  create(data: CreateRoleClassInput, createdById: string, isPublic: boolean) {
     return prisma.roleClass.create({
       data: {
         name: data.name,
         description: data.description ?? null,
+        createdById,
+        isPublic,
+        isActive: data.isActive ?? true,
       },
       select: roleClassSelect,
     })
@@ -97,15 +130,24 @@ export const roleClassesRepository = {
         ...(data.description !== undefined && {
           description: data.description,
         }),
+        ...(data.isPublic !== undefined && {
+          isPublic: data.isPublic,
+        }),
+        ...(data.isActive !== undefined && {
+          isActive: data.isActive,
+        }),
       },
       select: roleClassSelect,
     })
   },
 
-  delete(roleClassId: string) {
-    return prisma.roleClass.delete({
+  deactivate(roleClassId: string) {
+    return prisma.roleClass.update({
       where: {
         id: roleClassId,
+      },
+      data: {
+        isActive: false,
       },
       select: roleClassSelect,
     })

@@ -30,6 +30,49 @@ function canManageCatalog(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
 }
 
+function canReadCatalogItem(
+  item: {
+    isPublic: boolean
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN'
+    || item.isPublic
+    || item.createdById === currentUser.id
+  )
+}
+
+function canManageCatalogItem(
+  item: {
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  return currentUser.role === 'ADMIN' || item.createdById === currentUser.id
+}
+
+function assertItemCanBeUsedInSession(
+  item: {
+    id: string
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  session: {
+    moderatorId: string
+  },
+) {
+  if (!item.isActive) {
+    throw new ItemNotFoundError(item.id)
+  }
+
+  if (!item.isPublic && item.createdById !== session.moderatorId) {
+    throw new SessionForbiddenError()
+  }
+}
+
 function canManageSession(
   session: {
     moderatorId: string
@@ -124,8 +167,12 @@ function assertSessionCanGrantItems(session: {
 
 export const itemsService = {
   async getCatalogItems(currentUser: CurrentUser) {
-    if (canManageCatalog(currentUser)) {
+    if (currentUser.role === 'ADMIN') {
       return itemsRepository.findAllCatalogItems()
+    }
+
+    if (currentUser.role === 'MODERATOR') {
+      return itemsRepository.findVisibleCatalogItemsForModerator(currentUser.id)
     }
 
     return itemsRepository.findPublicCatalogItems()
@@ -134,14 +181,11 @@ export const itemsService = {
   async getCatalogItemById(itemId: string, currentUser: CurrentUser) {
     const item = await itemsRepository.findCatalogItemById(itemId)
 
-    if (!item || (!item.isActive && !canManageCatalog(currentUser))) {
+    if (!item || (!item.isActive && currentUser.role !== 'ADMIN')) {
       throw new ItemNotFoundError(itemId)
     }
 
-    if (
-      currentUser.role === 'PARTICIPANT'
-      && (!item.isPublic || !item.isActive)
-    ) {
+    if (!canReadCatalogItem(item, currentUser)) {
       throw new ItemNotFoundError(itemId)
     }
 
@@ -156,7 +200,11 @@ export const itemsService = {
       throw new SessionForbiddenError()
     }
 
-    return itemsRepository.createCatalogItem(data)
+    return itemsRepository.createCatalogItem(
+      data,
+      currentUser.id,
+      currentUser.role === 'ADMIN' ? data.isPublic ?? true : false,
+    )
   },
 
   async updateCatalogItem(
@@ -174,6 +222,14 @@ export const itemsService = {
       throw new ItemNotFoundError(itemId)
     }
 
+    if (!canManageCatalogItem(item, currentUser)) {
+      throw new SessionForbiddenError()
+    }
+
+    if (currentUser.role === 'MODERATOR' && data.isPublic === true) {
+      throw new SessionForbiddenError()
+    }
+
     return itemsRepository.updateCatalogItem(itemId, data)
   },
 
@@ -186,6 +242,10 @@ export const itemsService = {
 
     if (!item) {
       throw new ItemNotFoundError(itemId)
+    }
+
+    if (!canManageCatalogItem(item, currentUser)) {
+      throw new SessionForbiddenError()
     }
 
     return itemsRepository.deactivateCatalogItem(itemId)
@@ -234,6 +294,8 @@ export const itemsService = {
     if (!item || !item.isActive) {
       throw new ItemNotFoundError(data.itemId)
     }
+
+    assertItemCanBeUsedInSession(item, session)
 
     const existing = await itemsRepository.findSessionAllowedItem(
       sessionId,

@@ -31,14 +31,17 @@ function canManageSessionEvents(
 }
 
 function canViewAllSessionEvents(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+  return currentUser.role === 'ADMIN'
 }
 
 function canViewSession(
   session: NonNullable<SessionForAccess>,
   currentUser: CurrentUser,
 ) {
-  if (canViewAllSessionEvents(currentUser)) {
+  if (
+    canViewAllSessionEvents(currentUser) ||
+    canManageSessionEvents(session, currentUser)
+  ) {
     return true
   }
 

@@ -101,6 +101,28 @@ function canUseSessionForProfile(
   return isSessionParticipant || isTeamMember
 }
 
+function canCreateProfileInSession(
+  session: {
+    team: { members: { userId: string }[] } | null
+    participants: { userId: string }[]
+  },
+  currentUser: CurrentUser,
+) {
+  if (currentUser.role !== 'PARTICIPANT') {
+    return false
+  }
+
+  const isSessionParticipant = session.participants.some(
+    (participant) => participant.userId === currentUser.id,
+  )
+
+  const isTeamMember = Boolean(
+    session.team?.members.some((member) => member.userId === currentUser.id),
+  )
+
+  return isSessionParticipant || isTeamMember
+}
+
 function calculateFatigueLimitFromConstitution(constitution: number) {
   return Math.max(3, 3 + getAbilityModifier(constitution))
 }
@@ -150,6 +172,27 @@ function assertRoleClassAllowed(
   }
 }
 
+function assertRoleClassCanBeUsedForSession(
+  roleClass: {
+    id: string
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  session: {
+    id: string
+    moderatorId: string
+  },
+) {
+  if (!roleClass.isActive) {
+    throw new RoleClassNotFoundError(roleClass.id)
+  }
+
+  if (!roleClass.isPublic && roleClass.createdById !== session.moderatorId) {
+    throw new RoleClassNotAllowedError(session.id, roleClass.id)
+  }
+}
+
 async function assertRoleClassAllowedForCharacterSessions(
   characterId: string,
   roleClassId: string,
@@ -163,6 +206,10 @@ async function assertRoleClassAllowedForCharacterSessions(
   const roleClass = await characterRepository.findRoleClassById(roleClassId)
 
   if (!roleClass) {
+    throw new RoleClassNotFoundError(roleClassId)
+  }
+
+  if (!roleClass.isActive) {
     throw new RoleClassNotFoundError(roleClassId)
   }
 
@@ -240,11 +287,21 @@ export const characterService = {
         status: session.status,
         scenario: session.scenario,
       },
-      roleClasses: session.allowedRoleClasses.map(
-        (allowedRoleClass) => allowedRoleClass.roleClass,
-      ),
+      roleClasses: session.allowedRoleClasses
+        .map((allowedRoleClass) => allowedRoleClass.roleClass)
+        .filter(
+          (roleClass) =>
+            roleClass.isActive &&
+            (roleClass.isPublic || roleClass.createdById === session.moderatorId),
+        ),
       startingItems: session.allowedItems
-        .filter((allowedItem) => canSeeHiddenItems || allowedItem.isVisible)
+        .filter(
+          (allowedItem) =>
+            allowedItem.item.isActive &&
+            (allowedItem.item.isPublic ||
+              allowedItem.item.createdById === session.moderatorId) &&
+            (canSeeHiddenItems || allowedItem.isVisible),
+        )
         .map((allowedItem) => ({
           id: allowedItem.item.id,
           name: allowedItem.item.name,
@@ -282,7 +339,7 @@ export const characterService = {
       throw new SessionNotFoundError(sessionId)
     }
 
-    if (!canUseSessionForProfile(session, currentUser)) {
+    if (!canCreateProfileInSession(session, currentUser)) {
       throw new CharacterForbiddenError()
     }
 
@@ -296,6 +353,7 @@ export const characterService = {
       throw new RoleClassNotFoundError(data.roleClassId)
     }
 
+    assertRoleClassCanBeUsedForSession(roleClass, session)
     assertRoleClassAllowed(session, data.roleClassId)
 
     const existingParticipant =

@@ -23,6 +23,7 @@ import { characterStatsRoutes } from "./modules/character-stats/character-stats.
 import { roleClassesRoutes } from "./modules/role-classes/role-classes.routes";
 import { itemsRoutes } from "./modules/items/items.routes";
 import { taskTemplatesRoutes } from "./modules/task-templates/task-templates.routes";
+import { sessionTasksRoutes } from "./modules/session-tasks/session-tasks.routes";
 
 import { characterSheetRoutes } from "./modules/character-sheet/character-sheet.routes";
 import { CharacterSheetService } from "./modules/character-sheet/character-sheet.service";
@@ -109,6 +110,7 @@ export async function buildApp() {
   await app.register(roleClassesRoutes);
   await app.register(itemsRoutes);
   await app.register(taskTemplatesRoutes);
+  await app.register(sessionTasksRoutes);
 
   await app.register(characterStatsRoutes);
   await app.register(characterRoutes);

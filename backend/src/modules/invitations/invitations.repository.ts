@@ -147,8 +147,15 @@ export const invitationsRepository = {
 
   acceptInvitation(invitationId: string, sessionId: string, userId: string) {
     return prisma.$transaction(async (tx) => {
-      const participant = await tx.sessionParticipant.create({
-        data: {
+      const participant = await tx.sessionParticipant.upsert({
+        where: {
+          sessionId_userId: {
+            sessionId,
+            userId,
+          },
+        },
+        update: {},
+        create: {
           sessionId,
           userId,
         },

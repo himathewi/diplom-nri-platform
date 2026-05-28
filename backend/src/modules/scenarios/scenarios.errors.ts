@@ -32,3 +32,17 @@ export class ScenarioHasActiveSessionsError extends Error {
     this.name = 'ScenarioHasActiveSessionsError'
   }
 }
+
+export class ScenarioTaskTemplateNotFoundError extends Error {
+  constructor(templateId: string) {
+    super(`Task template with id ${templateId} not found`)
+    this.name = 'ScenarioTaskTemplateNotFoundError'
+  }
+}
+
+export class ScenarioTaskItemNotFoundError extends Error {
+  constructor(itemId: string) {
+    super(`Item with id ${itemId} not found`)
+    this.name = 'ScenarioTaskItemNotFoundError'
+  }
+}

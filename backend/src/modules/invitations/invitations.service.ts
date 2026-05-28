@@ -11,7 +11,6 @@ import {
   InvitationForbiddenError,
   InvitationInvalidSessionStatusError,
   InvitationNotFoundError,
-  InvitationParticipantAlreadyExistsError,
   InvitationRevokedError,
   InvitationSessionNotFoundError,
   InvitationUserMismatchError,
@@ -175,14 +174,6 @@ async function assertInvitationCanBeAccepted(
 
   assertSessionIsPlanned(invitation.session)
 
-  const existingParticipant = await invitationsRepository.findParticipant(
-    invitation.sessionId,
-    currentUser.id,
-  )
-
-  if (existingParticipant) {
-    throw new InvitationParticipantAlreadyExistsError()
-  }
 }
 
 async function generateUniqueCodeHash() {

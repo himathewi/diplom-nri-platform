@@ -4,7 +4,9 @@ import {
   ScenarioForbiddenError,
   ScenarioHasActiveSessionsError,
   ScenarioNotFoundError,
+  ScenarioTaskItemNotFoundError,
   ScenarioTaskNotFoundError,
+  ScenarioTaskTemplateNotFoundError,
 } from './scenarios.errors'
 import { scenariosRepository } from './scenarios.repository'
 import type {
@@ -111,6 +113,86 @@ async function ensureDirectionExists(directionId?: string | null) {
   }
 }
 
+function canReadTaskTemplate(
+  taskTemplate: {
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return taskTemplate.isPublic || taskTemplate.createdById === currentUser.id
+  }
+
+  return taskTemplate.isPublic && taskTemplate.isActive
+}
+
+async function ensureSourceTemplateCanBeUsed(
+  sourceTemplateId: string | null | undefined,
+  currentUser: CurrentUser,
+) {
+  if (!sourceTemplateId) {
+    return
+  }
+
+  const taskTemplate = await scenariosRepository.findTaskTemplateById(
+    sourceTemplateId,
+  )
+
+  if (
+    !taskTemplate ||
+    !taskTemplate.isActive ||
+    !canReadTaskTemplate(taskTemplate, currentUser)
+  ) {
+    throw new ScenarioTaskTemplateNotFoundError(sourceTemplateId)
+  }
+}
+
+function canReadItem(
+  item: {
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  if (!item.isActive) {
+    return false
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return item.isPublic || item.createdById === currentUser.id
+  }
+
+  return item.isPublic
+}
+
+async function ensureRequiredItemsExist(
+  requiredItems: CreateScenarioTaskInput['requiredItems'],
+  currentUser: CurrentUser,
+) {
+  if (!requiredItems) {
+    return
+  }
+
+  for (const requiredItem of requiredItems) {
+    const item = await scenariosRepository.findItemById(requiredItem.itemId)
+
+    if (!item || !canReadItem(item, currentUser)) {
+      throw new ScenarioTaskItemNotFoundError(requiredItem.itemId)
+    }
+  }
+}
+
 export const scenariosService = {
   async getScenarios(currentUser: CurrentUser) {
     return scenariosRepository.findMany(currentUser)
@@ -194,6 +276,30 @@ export const scenariosService = {
     return scenariosRepository.delete(id)
   },
 
+  async copyScenario(id: string, currentUser: CurrentUser) {
+    if (!canManageScenarios(currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const scenario = await scenariosRepository.findById(id)
+
+    if (!scenario) {
+      throw new ScenarioNotFoundError(id)
+    }
+
+    if (!canViewScenario(scenario, currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const copiedScenario = await scenariosRepository.copy(id, currentUser.id)
+
+    if (!copiedScenario) {
+      throw new ScenarioNotFoundError(id)
+    }
+
+    return copiedScenario
+  },
+
   async addTask(
     scenarioId: string,
     data: CreateScenarioTaskInput,
@@ -213,7 +319,10 @@ export const scenariosService = {
       throw new ScenarioForbiddenError()
     }
 
-    return scenariosRepository.addTask(scenarioId, data)
+    await ensureSourceTemplateCanBeUsed(data.sourceTemplateId, currentUser)
+    await ensureRequiredItemsExist(data.requiredItems, currentUser)
+
+    return scenariosRepository.addTask(scenarioId, data, currentUser.id)
   },
 
   async deleteTask(

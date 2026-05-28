@@ -33,7 +33,7 @@ function canManageSession(
 }
 
 function canViewAllSessions(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+  return currentUser.role === 'ADMIN'
 }
 
 function assertCanManageSession(
@@ -55,21 +55,19 @@ function assertSessionCanChangeSetup(session: { id: string; status: string }) {
   }
 }
 
-function assertCharacterCanJoinSession(
+function assertUserCanJoinSession(
   session: NonNullable<Awaited<ReturnType<typeof sessionsRepository.findById>>>,
-  character: NonNullable<
-    Awaited<ReturnType<typeof sessionsRepository.findCharacterById>>
-  >,
+  userId: string,
 ) {
   if (!session.teamId) {
     return
   }
 
-  const isTeamMemberCharacter = session.team?.members.some(
-    (member) => member.userId === character.userId,
+  const isTeamMember = session.team?.members.some(
+    (member) => member.userId === userId,
   )
 
-  if (!isTeamMemberCharacter) {
+  if (!isTeamMember) {
     throw new SessionForbiddenError()
   }
 }
@@ -118,12 +116,16 @@ export const sessionsService = {
       return session
     }
 
+    if (canManageSession(session, currentUser)) {
+      return session
+    }
+
     const isTeamMember = session.team?.members.some(
       (member) => member.userId === currentUser.id,
     )
 
     const isParticipant = session.participants.some(
-      (participant) => participant.character.userId === currentUser.id,
+      (participant) => participant.userId === currentUser.id,
     )
 
     if (!isTeamMember && !isParticipant) {
@@ -253,21 +255,31 @@ export const sessionsService = {
     assertCanManageSession(session, currentUser)
     assertSessionCanChangeSetup(session)
 
-    const character = await sessionsRepository.findCharacterById(data.characterId)
+    const user = await sessionsRepository.findUserById(data.userId)
 
-    if (!character) {
-      throw new CharacterNotFoundForSessionError(data.characterId)
+    if (!user) {
+      throw new SessionForbiddenError()
     }
 
-    assertCharacterCanJoinSession(session, character)
+    assertUserCanJoinSession(session, data.userId)
+
+    if (data.characterId) {
+      const character = await sessionsRepository.findCharacterById(
+        data.characterId,
+      )
+
+      if (!character || character.userId !== data.userId) {
+        throw new CharacterNotFoundForSessionError(data.characterId)
+      }
+    }
 
     const existingParticipant = await sessionsRepository.findParticipant(
       sessionId,
-      data.characterId,
+      data.userId,
     )
 
     if (existingParticipant) {
-      throw new SessionParticipantAlreadyExistsError(data.characterId)
+      throw new SessionParticipantAlreadyExistsError(data.userId)
     }
 
     return sessionsRepository.addParticipant(sessionId, data)

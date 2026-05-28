@@ -10,7 +10,9 @@ import {
   ScenarioForbiddenError,
   ScenarioHasActiveSessionsError,
   ScenarioNotFoundError,
+  ScenarioTaskItemNotFoundError,
   ScenarioTaskNotFoundError,
+  ScenarioTaskTemplateNotFoundError,
 } from './scenarios.errors'
 import {
   createScenarioSchema,
@@ -44,7 +46,11 @@ function sendScenarioError(error: unknown, reply: FastifyReply) {
     })
   }
 
-  if (error instanceof ScenarioTaskNotFoundError) {
+  if (
+    error instanceof ScenarioTaskNotFoundError ||
+    error instanceof ScenarioTaskTemplateNotFoundError ||
+    error instanceof ScenarioTaskItemNotFoundError
+  ) {
     return reply.status(404).send({
       message: error.message,
     })
@@ -236,6 +242,42 @@ export async function scenariosRoutes(app: FastifyInstance) {
         await scenariosService.deleteScenario(paramsParsed.data.id, currentUser)
 
         return reply.status(204).send()
+      } catch (error) {
+        return sendScenarioError(error, reply)
+      }
+    },
+  )
+
+  app.post(
+    '/scenarios/:id/copy',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = scenarioParamsSchema.safeParse(request.params)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const scenario = await scenariosService.copyScenario(
+          paramsParsed.data.id,
+          currentUser,
+        )
+
+        return reply.status(201).send(scenario)
       } catch (error) {
         return sendScenarioError(error, reply)
       }

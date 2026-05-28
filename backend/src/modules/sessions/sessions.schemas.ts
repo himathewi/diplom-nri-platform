@@ -29,7 +29,8 @@ export const updateSessionSchema = z
 
 export const addSessionParticipantSchema = z
   .object({
-    characterId: z.string().uuid(),
+    userId: z.string().uuid(),
+    characterId: z.string().uuid().optional().nullable(),
   })
   .strict()
 

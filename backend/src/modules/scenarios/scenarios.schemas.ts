@@ -38,6 +38,7 @@ export const createScenarioTaskSchema = z
     title: z.string().min(1),
     description: z.string().min(1),
     taskType: scenarioTaskTypeSchema.optional(),
+    sourceTemplateId: z.string().uuid().nullable().optional(),
 
     difficulty: z.number().int().min(1).max(5).optional(),
     fatigueCost: z.number().int().min(0).optional(),
@@ -45,6 +46,17 @@ export const createScenarioTaskSchema = z
     expectedResult: z.string().min(1).nullable().optional(),
     moderatorNotes: z.string().min(1).nullable().optional(),
     isVisibleByDefault: z.boolean().optional(),
+    requiredItems: z
+      .array(
+        z
+          .object({
+            itemId: z.string().uuid(),
+            quantity: z.number().int().min(1).default(1),
+            notes: z.string().nullable().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict()
 

@@ -23,6 +23,8 @@ export const createRoleClassSchema = z
   .object({
     name: z.string().min(1, 'Role class name is required'),
     description: z.string().nullable().optional(),
+    isPublic: z.boolean().optional(),
+    isActive: z.boolean().optional(),
   })
   .strict()
 
@@ -30,6 +32,8 @@ export const updateRoleClassSchema = z
   .object({
     name: z.string().min(1, 'Role class name is required').optional(),
     description: z.string().nullable().optional(),
+    isPublic: z.boolean().optional(),
+    isActive: z.boolean().optional(),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, {

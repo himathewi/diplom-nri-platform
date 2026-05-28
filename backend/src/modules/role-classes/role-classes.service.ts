@@ -4,7 +4,6 @@ import {
   InvalidSessionStatusForRoleClassesError,
   RoleClassAlreadyAllowedError,
   RoleClassForbiddenError,
-  RoleClassInUseError,
   RoleClassNotAllowedError,
   RoleClassNotFoundError,
   RoleClassValidationError,
@@ -94,18 +93,6 @@ async function assertRoleClassExists(roleClassId: string) {
   return roleClass
 }
 
-async function assertRoleClassCanBeDeleted(roleClassId: string) {
-  const charactersCount =
-    await roleClassesRepository.countCharactersByRoleClassId(roleClassId)
-
-  const allowedSessionsCount =
-    await roleClassesRepository.countAllowedSessionsByRoleClassId(roleClassId)
-
-  if (charactersCount > 0 || allowedSessionsCount > 0) {
-    throw new RoleClassInUseError(roleClassId)
-  }
-}
-
 async function assertUniqueRoleClassName(name: string, currentId?: string) {
   const existing = await roleClassesRepository.findByName(name)
 
@@ -116,11 +103,58 @@ async function assertUniqueRoleClassName(name: string, currentId?: string) {
   }
 }
 
+function canReadRoleClass(
+  roleClass: {
+    isPublic: boolean
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  return (
+    currentUser.role === 'ADMIN'
+    || roleClass.isPublic
+    || roleClass.createdById === currentUser.id
+  )
+}
+
+function canManageRoleClass(
+  roleClass: {
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  return currentUser.role === 'ADMIN' || roleClass.createdById === currentUser.id
+}
+
+function assertRoleClassCanBeUsedInSession(
+  roleClass: {
+    id: string
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  session: {
+    moderatorId: string
+  },
+) {
+  if (!roleClass.isActive) {
+    throw new RoleClassNotFoundError(roleClass.id)
+  }
+
+  if (!roleClass.isPublic && roleClass.createdById !== session.moderatorId) {
+    throw new RoleClassForbiddenError()
+  }
+}
+
 export const roleClassesService = {
   async getRoleClasses(currentUser: CurrentUser) {
     assertCanManageCatalog(currentUser)
 
-    return roleClassesRepository.findAll()
+    if (currentUser.role === 'ADMIN') {
+      return roleClassesRepository.findAll()
+    }
+
+    return roleClassesRepository.findVisibleForModerator(currentUser.id)
   },
 
   async getRoleClassById(roleClassId: string, currentUser: CurrentUser) {
@@ -130,6 +164,10 @@ export const roleClassesService = {
 
     if (!roleClass) {
       throw new RoleClassNotFoundError(roleClassId)
+    }
+
+    if (!canReadRoleClass(roleClass, currentUser)) {
+      throw new RoleClassForbiddenError()
     }
 
     return roleClass
@@ -142,7 +180,11 @@ export const roleClassesService = {
     assertCanManageCatalog(currentUser)
     await assertUniqueRoleClassName(data.name)
 
-    return roleClassesRepository.create(data)
+    return roleClassesRepository.create(
+      data,
+      currentUser.id,
+      currentUser.role === 'ADMIN' ? data.isPublic ?? true : false,
+    )
   },
 
   async updateRoleClass(
@@ -156,6 +198,14 @@ export const roleClassesService = {
 
     if (!roleClass) {
       throw new RoleClassNotFoundError(roleClassId)
+    }
+
+    if (!canManageRoleClass(roleClass, currentUser)) {
+      throw new RoleClassForbiddenError()
+    }
+
+    if (currentUser.role === 'MODERATOR' && data.isPublic === true) {
+      throw new RoleClassForbiddenError()
     }
 
     if (data.name !== undefined) {
@@ -174,9 +224,11 @@ export const roleClassesService = {
       throw new RoleClassNotFoundError(roleClassId)
     }
 
-    await assertRoleClassCanBeDeleted(roleClassId)
+    if (!canManageRoleClass(roleClass, currentUser)) {
+      throw new RoleClassForbiddenError()
+    }
 
-    return roleClassesRepository.delete(roleClassId)
+    return roleClassesRepository.deactivate(roleClassId)
   },
 
   async getSessionRoleClasses(sessionId: string, currentUser: CurrentUser) {
@@ -209,7 +261,8 @@ export const roleClassesService = {
     }
 
     assertSessionCanBeConfigured(session)
-    await assertRoleClassExists(data.roleClassId)
+    const roleClass = await assertRoleClassExists(data.roleClassId)
+    assertRoleClassCanBeUsedInSession(roleClass, session)
 
     const existing = await roleClassesRepository.findSessionAllowedRoleClass(
       sessionId,

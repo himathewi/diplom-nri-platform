@@ -5,6 +5,9 @@ export const roleClassSelect = {
   id: true,
   name: true,
   description: true,
+  createdById: true,
+  isPublic: true,
+  isActive: true,
 } as const
 
 export const characterStatsSelect = {

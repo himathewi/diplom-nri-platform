@@ -124,11 +124,64 @@ function mergeRequiredItems(
   return Array.from(itemsById.values())
 }
 
-async function assertItemsExist(items: SessionTaskRequiredItemInput[]) {
+function canReadTaskTemplate(
+  taskTemplate: {
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  currentUser: CurrentUser,
+) {
+  if (!taskTemplate.isActive) {
+    return false
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return taskTemplate.isPublic || taskTemplate.createdById === currentUser.id
+  }
+
+  return taskTemplate.isPublic
+}
+
+function canReadItemForSession(
+  item: {
+    isPublic: boolean
+    isActive: boolean
+    createdById: string | null
+  },
+  session: {
+    moderatorId: string
+  },
+  currentUser: CurrentUser,
+) {
+  if (!item.isActive) {
+    return false
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return item.isPublic || item.createdById === session.moderatorId
+  }
+
+  return item.isPublic
+}
+
+async function assertItemsCanBeUsed(
+  items: SessionTaskRequiredItemInput[],
+  session: SessionForAccess,
+  currentUser: CurrentUser,
+) {
   for (const item of items) {
     const existingItem = await sessionTasksRepository.findItemById(item.itemId)
 
-    if (!existingItem || !existingItem.isActive) {
+    if (!existingItem || !canReadItemForSession(existingItem, session, currentUser)) {
       throw new SessionTaskItemNotFoundError(item.itemId)
     }
   }
@@ -151,6 +204,7 @@ function toRequiredItemsFromSource(
 async function buildCreateData(
   session: SessionForAccess,
   data: CreateSessionTaskInput,
+  currentUser: CurrentUser,
 ) {
   assertOnlyOneSource(data)
 
@@ -159,7 +213,7 @@ async function buildCreateData(
       data.sourceTemplateId,
     )
 
-    if (!template || !template.isActive) {
+    if (!template || !canReadTaskTemplate(template, currentUser)) {
       throw new SessionTaskTemplateNotFoundError(data.sourceTemplateId)
     }
 
@@ -168,7 +222,7 @@ async function buildCreateData(
       data.requiredItems,
     )
 
-    await assertItemsExist(requiredItems)
+    await assertItemsCanBeUsed(requiredItems, session, currentUser)
 
     return {
       sessionId: session.id,
@@ -205,7 +259,7 @@ async function buildCreateData(
       data.requiredItems,
     )
 
-    await assertItemsExist(requiredItems)
+    await assertItemsCanBeUsed(requiredItems, session, currentUser)
 
     return {
       sessionId: session.id,
@@ -231,7 +285,7 @@ async function buildCreateData(
 
   const requiredItems = data.requiredItems ?? []
 
-  await assertItemsExist(requiredItems)
+  await assertItemsCanBeUsed(requiredItems, session, currentUser)
 
   return {
     sessionId: session.id,
@@ -291,7 +345,7 @@ export const sessionTasksService = {
     assertCanManageSession(session, currentUser)
     assertSessionIsNotFinished(session)
 
-    const createData = await buildCreateData(session, data)
+    const createData = await buildCreateData(session, data, currentUser)
 
     return sessionTasksRepository.create(createData)
   },
@@ -340,7 +394,7 @@ export const sessionTasksService = {
     assertCanManageSession(task.session, currentUser)
     assertSessionIsNotFinished(task.session)
 
-    await assertItemsExist([data])
+    await assertItemsCanBeUsed([data], task.session, currentUser)
 
     return sessionTasksRepository.upsertRequiredItem(taskId, data)
   },

@@ -93,6 +93,21 @@ export const scenariosRepository = {
     })
   },
 
+  findTaskTemplateById(taskTemplateId: string) {
+    return prisma.taskTemplate.findUnique({
+      where: { id: taskTemplateId },
+      include: {
+        requiredItems: true,
+      },
+    })
+  },
+
+  findItemById(itemId: string) {
+    return prisma.item.findUnique({
+      where: { id: itemId },
+    })
+  },
+
   create(data: CreateScenarioInput, createdById: string) {
     return prisma.scenario.create({
       data: {
@@ -132,6 +147,72 @@ export const scenariosRepository = {
     })
   },
 
+  copy(id: string, createdById: string) {
+    return prisma.$transaction(async (tx) => {
+      const source = await tx.scenario.findUnique({
+        where: { id },
+        include: {
+          tasks: {
+            include: {
+              requiredItems: true,
+            },
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+        },
+      })
+
+      if (!source) {
+        return null
+      }
+
+      const copiedScenario = await tx.scenario.create({
+        data: {
+          title: source.title,
+          description: source.description,
+          goal: source.goal,
+          difficulty: source.difficulty,
+          directionId: source.directionId,
+          sourceType: 'CUSTOM',
+          isPublicTemplate: false,
+          createdById,
+          basedOnScenarioId: source.id,
+          tasks: {
+            create: source.tasks.map((task) => ({
+              title: task.title,
+              description: task.description,
+              taskType: task.taskType,
+              createdById,
+              sourceTemplateId: task.sourceTemplateId,
+              difficulty: task.difficulty,
+              fatigueCost: task.fatigueCost,
+              expectedResult: task.expectedResult,
+              moderatorNotes: task.moderatorNotes,
+              isVisibleByDefault: task.isVisibleByDefault,
+              isPublic: false,
+              isActive: task.isActive,
+              requiredItems: {
+                create: task.requiredItems.map((requiredItem) => ({
+                  itemId: requiredItem.itemId,
+                  quantity: requiredItem.quantity,
+                  notes: requiredItem.notes,
+                })),
+              },
+            })),
+          },
+        },
+      })
+
+      return tx.scenario.findUnique({
+        where: {
+          id: copiedScenario.id,
+        },
+        include: scenarioInclude,
+      })
+    })
+  },
+
   countActiveSessions(scenarioId: string) {
     return prisma.gameSession.count({
       where: {
@@ -141,18 +222,42 @@ export const scenariosRepository = {
     })
   },
 
-  addTask(scenarioId: string, data: CreateScenarioTaskInput) {
+  addTask(
+    scenarioId: string,
+    data: CreateScenarioTaskInput,
+    createdById: string,
+  ) {
     return prisma.scenarioTask.create({
       data: {
         scenarioId,
         title: data.title,
         description: data.description,
         taskType: data.taskType,
+        createdById,
+        sourceTemplateId: data.sourceTemplateId ?? null,
         difficulty: data.difficulty,
         fatigueCost: data.fatigueCost,
         expectedResult: data.expectedResult,
         moderatorNotes: data.moderatorNotes,
         isVisibleByDefault: data.isVisibleByDefault,
+        requiredItems:
+          data.requiredItems && data.requiredItems.length > 0
+            ? {
+                create: data.requiredItems.map((item) => ({
+                  itemId: item.itemId,
+                  quantity: item.quantity,
+                  notes: item.notes ?? null,
+                })),
+              }
+            : undefined,
+      },
+      include: {
+        requiredItems: {
+          include: {
+            item: true,
+          },
+        },
+        sourceTemplate: true,
       },
     })
   },
