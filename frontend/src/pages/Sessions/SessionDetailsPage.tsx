@@ -857,6 +857,80 @@ async function handleRevokeInvitation(invitationId: string) {
           )}
         </article>
         <article className="details-card">
+          <h2>Ролевые профили участников</h2>
+
+          {participants.length === 0 ? (
+            <div className="empty-state">
+              <h2>Профили пока не назначены</h2>
+              <p>
+                После присоединения участников к сессии здесь будут отображаться их
+                ролевые профили, профессиональные функции и ограничения по усталости.
+              </p>
+            </div>
+          ) : (
+            <div className="role-profiles-list">
+              {participants.map((participant) => {
+                const character = participant.character
+
+                return (
+                  <article className="role-profile-card" key={participant.id}>
+                    <div className="task-card__header">
+                      <div>
+                        <h3>{character?.name ?? `Участник ${participant.id}`}</h3>
+
+                        <div className="scenario-card__meta">
+                          <span>
+                            {character?.professionalFunction ??
+                              'Ролевая функция не указана'}
+                          </span>
+
+                          <span>
+                            Усталость:{' '}
+                            {character
+                              ? `${character.currentFatigue} / ${character.fatigueLimit}`
+                              : 'не указана'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p>
+                      {character?.description ??
+                        'Описание ролевого профиля пока не заполнено.'}
+                    </p>
+
+                    <div className="role-profile-stats">
+                      <div>
+                        <span>Класс роли</span>
+                        <strong>{character?.roleClassId ?? 'Не назначен'}</strong>
+                      </div>
+
+                      <div>
+                        <span>Текущая усталость</span>
+                        <strong>{character?.currentFatigue ?? 0}</strong>
+                      </div>
+
+                      <div>
+                        <span>Лимит усталости</span>
+                        <strong>{character?.fatigueLimit ?? 0}</strong>
+                      </div>
+                    </div>
+
+                    <div className="info-box">
+                      <h3>Доступные действия</h3>
+                      <p>
+                        Участник может выполнять задания сессии, принимать решения по
+                        событиям и использовать доступные ресурсы в пределах лимита
+                        усталости.
+                      </p>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </article>
+        <article className="details-card">
           <h2>Приглашения участников</h2>
 
           {selectedSession.status === 'PLANNED' ? (
