@@ -41,23 +41,15 @@ enum EventType {
 model Character {
   id String @id @default(uuid())
 
-  name      String
-  race      String
-  className String
-  level     Int    @default(1)
+  userId      String
+  roleClassId String?
 
-  description String?
-  alignment   String?
-  background  String?
-  avatarUrl   String?
+  name                 String
+  description          String?
+  professionalFunction String?
 
-  currentHp   Int @default(0)
-  temporaryHp Int @default(0)
-
-  speed       Int     @default(30)
-  inspiration Boolean @default(false)
-
-  userId String?
+  fatigueLimit   Int @default(3)
+  currentFatigue Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -65,11 +57,13 @@ model Character {
   stats CharacterStats?
   items CharacterItem[]
 
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleClass           RoleClass?           @relation(fields: [roleClassId], references: [id], onDelete: SetNull)
   sessionParticipants SessionParticipant[]
   decisions           Decision[]
 
   @@index([userId])
+  @@index([roleClassId])
 }
 
 model CharacterStats {
@@ -90,16 +84,15 @@ model ItemTemplate {
   id          String  @id @default(uuid())
   name        String
   type        String?
-  slot        String?
   description String?
 
-  allowedSlots Json?
-  effects      Json?
+  effects Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  characterItems CharacterItem[]
+  characterItems  CharacterItem[]
+  allowedSessions SessionAllowedItemTemplate[]
 }
 
 model CharacterItem {
@@ -108,16 +101,12 @@ model CharacterItem {
   itemTemplateId String?
 
   nameSnapshot String
-  quantity     Int @default(1)
-
-  isEquipped  Boolean @default(false)
-  equippedSlot String?
+  quantity     Int    @default(1)
 
   notes String?
 
-  type         String?
-  allowedSlots Json?
-  effects      Json?
+  type    String?
+  effects Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,7 +116,6 @@ model CharacterItem {
 
   @@index([characterId])
   @@index([itemTemplateId])
-  @@unique([characterId, equippedSlot])
 }
 
 model User {
@@ -142,6 +130,18 @@ model User {
   moderatedSessions GameSession[] @relation("SessionModerator")
   teamMembers       TeamMember[]
   decisions         Decision[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RoleClass {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  characters      Character[]
+  allowedSessions SessionAllowedRoleClass[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,7 +185,7 @@ model Scenario {
   difficulty  Int            @default(1)
 
   createdById String
-  createdBy   User @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy   User   @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
 
   tasks    ScenarioTask[]
   sessions GameSession[]
@@ -228,6 +228,9 @@ model GameSession {
   metrics      TeamMetric?
   report       SessionReport?
 
+  allowedRoleClasses   SessionAllowedRoleClass[]
+  allowedItemTemplates SessionAllowedItemTemplate[]
+
   startedAt  DateTime?
   finishedAt DateTime?
   createdAt  DateTime  @default(now())
@@ -236,6 +239,32 @@ model GameSession {
   @@index([scenarioId])
   @@index([teamId])
   @@index([moderatorId])
+}
+
+model SessionAllowedRoleClass {
+  id          String @id @default(uuid())
+  sessionId   String
+  roleClassId String
+
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roleClass RoleClass   @relation(fields: [roleClassId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, roleClassId])
+  @@index([sessionId])
+  @@index([roleClassId])
+}
+
+model SessionAllowedItemTemplate {
+  id             String @id @default(uuid())
+  sessionId      String
+  itemTemplateId String
+
+  session      GameSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  itemTemplate ItemTemplate @relation(fields: [itemTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, itemTemplateId])
+  @@index([sessionId])
+  @@index([itemTemplateId])
 }
 
 model SessionParticipant {
@@ -299,11 +328,11 @@ model TeamMetric {
   id        String @id @default(uuid())
   sessionId String @unique
 
-  communicationScore      Int @default(0)
-  decisionSpeedScore      Int @default(0)
-  roleDistributionScore   Int @default(0)
-  conflictResolutionScore Int @default(0)
-  leadershipScore         Int @default(0)
+  communicationScore      Int     @default(0)
+  decisionSpeedScore      Int     @default(0)
+  roleDistributionScore   Int     @default(0)
+  conflictResolutionScore Int     @default(0)
+  leadershipScore         Int     @default(0)
   comment                 String?
 
   session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

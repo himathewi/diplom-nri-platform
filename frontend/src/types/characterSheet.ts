@@ -1,47 +1,32 @@
-import type { Stats } from './characters'
+import type {
+  CharacterSessionParticipation,
+  CharacterUser,
+  RoleClass,
+  Stats,
+} from './characters'
 import type { CharacterItemForSheet } from './items'
 
 export type AbilityName = keyof Stats
 
 export type CharacterProfile = {
   id: string
-
+  userId: string
+  roleClassId: string | null
   name: string
-  race: string
-  className: string
-  level: number
-
   description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
-
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
-
+  professionalFunction: string | null
+  fatigueLimit: number
+  currentFatigue: number
+  roleClass: RoleClass | null
+  user: CharacterUser
   createdAt: string
   updatedAt: string
 }
 
-export type SkillBonus = {
-  name: string
-  ability: AbilityName
-  proficient: boolean
-  expertise: boolean
-  bonus: number
-}
-
-export type SavingThrowBonus = {
-  ability: AbilityName
-  label: string
-  proficient: boolean
-  bonus: number
-}
-
 export type CharacterSheet = {
   character: CharacterProfile
+  user: CharacterUser
+  roleClass: RoleClass | null
 
   stats: {
     base: Stats
@@ -49,19 +34,15 @@ export type CharacterSheet = {
     modifiers: Record<AbilityName, number>
   }
 
-  derived: {
-    maxHp: number
-    armorClass: number
-    initiative: number
-    passivePerception: number
-    proficiencyBonus: number
+  fatigue: {
+    limit: number
+    current: number
+    remaining: number
   }
-
-  skills: SkillBonus[]
-  savingThrows: SavingThrowBonus[]
 
   inventory: {
     items: CharacterItemForSheet[]
-    equippedItems: CharacterItemForSheet[]
   }
+
+  sessions: CharacterSessionParticipation[]
 }

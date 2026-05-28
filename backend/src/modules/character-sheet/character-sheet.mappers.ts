@@ -1,37 +1,59 @@
-import type { AbilityName, AbilityScores } from '../calculation/stats.rules'
+import type { AbilityScores } from '../calculation/stats.rules'
 import { normalizeItemEffects } from '../calculation/item-effects.rules'
 
 import type {
   CharacterItemDto,
   CharacterProfileDto,
-  EquipmentSlot,
+  CharacterSessionDto,
+  CharacterUserDto,
+  RoleClassDto,
 } from './character-sheet.types'
 import type {
   CharacterEntity,
   CharacterItemEntity,
   CharacterStatsEntity,
+  RoleClassEntity,
+  SessionParticipantEntity,
+  UserEntity,
 } from './character-sheet.contracts'
+
+export function toRoleClassDto(
+  roleClass: RoleClassEntity | null,
+): RoleClassDto | null {
+  if (!roleClass) {
+    return null
+  }
+
+  return {
+    id: roleClass.id,
+    name: roleClass.name,
+    description: roleClass.description,
+  }
+}
+
+export function toUserDto(user: UserEntity): CharacterUserDto {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  }
+}
 
 export function toCharacterProfileDto(
   character: CharacterEntity,
 ): CharacterProfileDto {
   return {
     id: character.id,
+    userId: character.userId,
+    roleClassId: character.roleClassId,
     name: character.name,
-    race: character.race,
-    className: character.className,
-    level: character.level,
-
     description: character.description,
-    alignment: character.alignment,
-    background: character.background,
-    avatarUrl: character.avatarUrl,
-
-    currentHp: character.currentHp,
-    temporaryHp: character.temporaryHp,
-    speed: character.speed,
-    inspiration: character.inspiration,
-
+    professionalFunction: character.professionalFunction,
+    fatigueLimit: character.fatigueLimit,
+    currentFatigue: character.currentFatigue,
+    roleClass: toRoleClassDto(character.roleClass),
+    user: toUserDto(character.user),
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
   }
@@ -41,38 +63,33 @@ export function toCharacterItemDto(
   item: CharacterItemEntity,
 ): CharacterItemDto {
   const template = item.itemTemplate ?? null
-
   const hasItemType = item.type !== null && item.type !== undefined
   const hasItemEffects = item.effects !== null && item.effects !== undefined
-  const hasItemAllowedSlots =
-    item.allowedSlots !== null && item.allowedSlots !== undefined
-  const hasTemplateAllowedSlots =
-    template?.allowedSlots !== null && template?.allowedSlots !== undefined
-
-  const type = hasItemType ? item.type : template?.type ?? 'misc'
-
-  const itemEffects = normalizeItemEffects(item.effects)
-  const templateEffects = normalizeItemEffects(template?.effects)
-
-  const itemAllowedSlots = normalizeAllowedSlots(item.allowedSlots)
-  const templateAllowedSlots = normalizeAllowedSlots(template?.allowedSlots)
-  const templateSlot = normalizeAllowedSlots(template?.slot)
 
   return {
     id: item.id,
     itemId: item.id,
+    itemTemplateId: item.itemTemplateId,
     name: item.nameSnapshot || template?.name || 'Item',
-    type,
-    effects: hasItemEffects ? itemEffects : templateEffects,
-    allowedSlots: hasItemAllowedSlots
-      ? itemAllowedSlots
-      : hasTemplateAllowedSlots
-        ? templateAllowedSlots
-        : templateSlot,
-    isEquipped: item.isEquipped,
-    equippedSlot: normalizeEquipmentSlot(item.equippedSlot),
+    type: hasItemType ? item.type : template?.type ?? 'misc',
+    effects: hasItemEffects
+      ? normalizeItemEffects(item.effects)
+      : normalizeItemEffects(template?.effects),
     quantity: item.quantity,
     notes: item.notes,
+  }
+}
+
+export function toSessionDto(
+  participant: SessionParticipantEntity,
+): CharacterSessionDto {
+  return {
+    id: participant.id,
+    sessionId: participant.sessionId,
+    status: participant.session.status,
+    scenario: participant.session.scenario,
+    team: participant.session.team,
+    createdAt: participant.createdAt,
   }
 }
 
@@ -87,57 +104,4 @@ export function toAbilityScores(
     wisdom: stats.wisdom,
     charisma: stats.charisma,
   }
-}
-
-export function normalizeAbilityName(
-  ability: AbilityName | string | null | undefined,
-): AbilityName | null {
-  if (
-    ability === 'strength' ||
-    ability === 'dexterity' ||
-    ability === 'constitution' ||
-    ability === 'intelligence' ||
-    ability === 'wisdom' ||
-    ability === 'charisma'
-  ) {
-    return ability
-  }
-
-  return null
-}
-
-function normalizeEquipmentSlot(slot: unknown): EquipmentSlot | null {
-  if (
-    slot === 'mainHand' ||
-    slot === 'offHand' ||
-    slot === 'head' ||
-    slot === 'body' ||
-    slot === 'ring1' ||
-    slot === 'ring2' ||
-    slot === 'amulet' ||
-    slot === 'boots'
-  ) {
-    return slot
-  }
-
-  return null
-}
-
-function normalizeAllowedSlots(value: unknown): EquipmentSlot[] {
-  if (!value) {
-    return []
-  }
-
-  if (typeof value === 'string') {
-    const slot = normalizeEquipmentSlot(value)
-    return slot ? [slot] : []
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map((slot) => normalizeEquipmentSlot(slot))
-      .filter((slot): slot is EquipmentSlot => slot !== null)
-  }
-
-  return []
 }

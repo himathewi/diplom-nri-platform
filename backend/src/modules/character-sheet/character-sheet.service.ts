@@ -1,26 +1,18 @@
 import { CharacterNotFoundError } from '../characters/errors'
-import { calculateMaxHp } from '../calculation/hp.rules'
-
 import { getAbilityModifiers } from '../calculation/stats.rules'
 
 import {
   toAbilityScores,
   toCharacterItemDto,
   toCharacterProfileDto,
+  toRoleClassDto,
+  toSessionDto,
+  toUserDto,
 } from './character-sheet.mappers'
 
-import {
-  calculateCharacterSheetDerived,
-  calculateProficiencyBonus,
-} from './character-sheet.calculation'
+import { calculateCharacterFatigue } from './character-sheet.calculation'
 
-import {
-  calculatePassivePerception,
-  calculateSkillBonuses,
-} from '../calculation/skills.rules'
 import { calculateFinalStats } from '../calculation/item-effects.rules'
-
-import { calculateSavingThrows } from '../calculation/saving-throws.rules'
 
 import type {
   CharacterEntity,
@@ -31,11 +23,6 @@ import type {
 } from './character-sheet.contracts'
 
 import type { CharacterSheetDto } from './character-sheet.types'
-
-
-// =========================================================
-// CharacterSheetService
-// =========================================================
 
 export class CharacterSheetService {
   constructor(
@@ -52,79 +39,40 @@ export class CharacterSheetService {
     }
 
     const baseStatsEntity = await this.getStats(characterId)
-
     const items = await this.itemRepository.findByCharacterId(characterId)
 
     const inventoryItems = items.map((item) => toCharacterItemDto(item))
-    const equippedItems = inventoryItems.filter((item) => item.isEquipped)
-
     const baseStats = toAbilityScores(baseStatsEntity)
-
-    const finalStats = calculateFinalStats(baseStats, equippedItems)
-
+    const finalStats = calculateFinalStats(baseStats, inventoryItems)
     const modifiers = getAbilityModifiers(finalStats)
-
-    const proficiencyBonus = calculateProficiencyBonus(character.level)
-
-    const skills = calculateSkillBonuses({
-      modifiers,
-      proficiencyBonus,
-      skillStates: [],
-    })
-
-    const savingThrows = calculateSavingThrows({
-      modifiers,
-      proficiencyBonus,
-      savingThrowStates: [],
-    })
-
-    const characterForHpCalculation = {
-      ...character,
-      stats: baseStatsEntity,
-    }
-
-    const derived = calculateCharacterSheetDerived({
-      level: character.level,
-      modifiers,
-      maxHp: calculateMaxHp(characterForHpCalculation),
-      passivePerception: calculatePassivePerception(skills),
-      equippedItems,
-    })
 
     return {
       character: toCharacterProfileDto(character),
-
+      user: toUserDto(character.user),
+      roleClass: toRoleClassDto(character.roleClass),
       stats: {
         base: baseStats,
         final: finalStats,
         modifiers,
       },
-
-      derived,
-
-      skills,
-      savingThrows,
-
+      fatigue: calculateCharacterFatigue({
+        limit: character.fatigueLimit,
+        current: character.currentFatigue,
+      }),
       inventory: {
         items: inventoryItems,
-        equippedItems,
       },
+      sessions: character.sessionParticipants.map((participant) =>
+        toSessionDto(participant),
+      ),
     }
   }
-
-  // =======================================================
-  // Character loading
-  // =======================================================
 
   private getCharacterForSheet(
     characterId: string,
   ): Promise<CharacterEntity | null> {
     return this.characterRepository.findByIdForSheet(characterId)
   }
-
-  // =======================================================
-  // Stats loading
-  // =======================================================
 
   private async getStats(characterId: string): Promise<CharacterStatsEntity> {
     const stats = await this.characterStatsRepository.findByCharacterId(

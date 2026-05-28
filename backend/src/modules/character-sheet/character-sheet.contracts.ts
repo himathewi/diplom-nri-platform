@@ -1,24 +1,28 @@
-// =========================================================
-// Entity contracts for CharacterSheetService
-// =========================================================
+export type RoleClassEntity = {
+  id: string
+  name: string
+  description: string | null
+}
+
+export type UserEntity = {
+  id: string
+  email: string
+  name: string
+  role: string
+}
 
 export type CharacterEntity = {
   id: string
+  userId: string
+  roleClassId: string | null
   name: string
-  race: string
-  className: string
-  level: number
-
   description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
-
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
-
+  professionalFunction: string | null
+  fatigueLimit: number
+  currentFatigue: number
+  roleClass: RoleClassEntity | null
+  user: UserEntity
+  sessionParticipants: SessionParticipantEntity[]
   createdAt: Date
   updatedAt: Date
 }
@@ -37,9 +41,7 @@ export type ItemTemplateEntity = {
   id: string
   name: string
   type: string | null
-  slot: string | null
   description: string | null
-  allowedSlots: unknown
   effects: unknown
   createdAt?: Date
   updatedAt?: Date
@@ -50,21 +52,36 @@ export type CharacterItemEntity = {
   characterId: string
   nameSnapshot: string
   quantity: number
-  isEquipped: boolean
-  equippedSlot: string | null
   notes: string | null
   itemTemplateId: string | null
-
   type: string | null
-  allowedSlots: unknown
   effects: unknown
-
   itemTemplate?: ItemTemplateEntity | null
 }
 
-// =========================================================
-// Repository contracts for CharacterSheetService
-// =========================================================
+export type SessionParticipantEntity = {
+  id: string
+  sessionId: string
+  createdAt: Date
+  session: {
+    id: string
+    status: string
+    createdAt: Date
+    scenario: {
+      id: string
+      title: string
+      description: string
+      domain: string
+      goal: string
+      difficulty: number
+    }
+    team: {
+      id: string
+      name: string
+      companyName: string | null
+    } | null
+  }
+}
 
 export type CharacterRepository = {
   findByIdForSheet: (id: string) => Promise<CharacterEntity | null>

@@ -1,15 +1,7 @@
 import { prisma } from '../../lib/prisma'
-import type {
-  CreateCharacterStatsInput,
-} from './character-stats.schemas'
-
-type ClampHpStateInput = {
-  currentHp: number
-  temporaryHp: number
-}
+import type { CreateCharacterStatsInput } from './character-stats.schemas'
 
 export const characterStatsRepository = {
-  // Найти статы персонажа
   findStatsByCharacterId(characterId: string) {
     return prisma.characterStats.findUnique({
       where: {
@@ -17,11 +9,11 @@ export const characterStatsRepository = {
       },
     })
   },
-  
-  upsertStatsAndClampHp(
+
+  upsertStatsAndUpdateFatigueLimit(
     characterId: string,
     data: CreateCharacterStatsInput,
-    hpState?: ClampHpStateInput,
+    fatigueLimit: number,
   ) {
     return prisma.$transaction(async (tx) => {
       const updatedStats = await tx.characterStats.upsert({
@@ -47,17 +39,24 @@ export const characterStatsRepository = {
         },
       })
 
-      if (hpState) {
-        await tx.character.update({
-          where: {
-            id: characterId,
-          },
-          data: {
-            currentHp: hpState.currentHp,
-            temporaryHp: hpState.temporaryHp,
-          },
-        })
-      }
+      const character = await tx.character.findUnique({
+        where: {
+          id: characterId,
+        },
+        select: {
+          currentFatigue: true,
+        },
+      })
+
+      await tx.character.update({
+        where: {
+          id: characterId,
+        },
+        data: {
+          fatigueLimit,
+          currentFatigue: Math.min(character?.currentFatigue ?? 0, fatigueLimit),
+        },
+      })
 
       return updatedStats
     })

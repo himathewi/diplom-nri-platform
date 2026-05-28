@@ -1,4 +1,4 @@
-import type { CharacterItem, EquipmentSlot } from './items'
+import type { CharacterItem } from './items'
 
 export type Stats = {
   strength: number
@@ -9,72 +9,59 @@ export type Stats = {
   charisma: number
 }
 
-export type DerivedStats = {
-  maxHp: number
-  armorClass: number
-  initiative: number
-}
-
-export type Skill = {
+export type RoleClass = {
+  id: string
   name: string
-  attribute: keyof Stats
-  proficient: boolean
+  description: string | null
 }
 
-export type EquippedItems = Record<EquipmentSlot, string | null>
+export type CharacterUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+}
+
+export type CharacterSessionParticipation = {
+  id: string
+  sessionId: string
+  status: string
+  scenario: {
+    id: string
+    title: string
+    description: string
+    domain: string
+    goal: string
+    difficulty: number
+  }
+  team: {
+    id: string
+    name: string
+    companyName: string | null
+  } | null
+  createdAt: string
+}
 
 export type Character = {
   id: string
-  userId?: string | null
+  userId: string
+  roleClassId: string | null
+  roleClass?: RoleClass | null
 
   name: string
-  race: string
-  className: string
-  level: number
-
   description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
+  professionalFunction: string | null
 
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
+  fatigueLimit: number
+  currentFatigue: number
 
-  baseStats?: Stats
-
-  skills?: Skill[]
-
+  baseStats?: Stats | null
   currentStats?: Stats
-  derivedStats?: DerivedStats
-  savingThrowProficiencies?: (keyof Stats)[]
 
   inventory?: CharacterItem[]
-  equippedItems?: EquippedItems
+  sessions?: CharacterSessionParticipation[]
+  user?: CharacterUser
 
   createdAt: string
   updatedAt: string
 }
-
-export const standardSkills: Skill[] = [
-  { name: 'Атлетика', attribute: 'strength', proficient: false },
-  { name: 'Акробатика', attribute: 'dexterity', proficient: false },
-  { name: 'Ловкость рук', attribute: 'dexterity', proficient: false },
-  { name: 'Скрытность', attribute: 'dexterity', proficient: false },
-  { name: 'Магия', attribute: 'intelligence', proficient: false },
-  { name: 'История', attribute: 'intelligence', proficient: false },
-  { name: 'Расследование', attribute: 'intelligence', proficient: false },
-  { name: 'Природа', attribute: 'intelligence', proficient: false },
-  { name: 'Религия', attribute: 'intelligence', proficient: false },
-  { name: 'Уход за животными', attribute: 'wisdom', proficient: false },
-  { name: 'Проницательность', attribute: 'wisdom', proficient: false },
-  { name: 'Медицина', attribute: 'wisdom', proficient: false },
-  { name: 'Восприятие', attribute: 'wisdom', proficient: false },
-  { name: 'Выживание', attribute: 'wisdom', proficient: false },
-  { name: 'Обман', attribute: 'charisma', proficient: false },
-  { name: 'Запугивание', attribute: 'charisma', proficient: false },
-  { name: 'Выступление', attribute: 'charisma', proficient: false },
-  { name: 'Убеждение', attribute: 'charisma', proficient: false },
-]
-

@@ -53,7 +53,12 @@ const mergeCharacterIntoList = (
 const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
   ...sheet.character,
   baseStats: sheet.stats.base,
-} as Character)
+  currentStats: sheet.stats.final,
+  inventory: sheet.inventory.items,
+  sessions: sheet.sessions,
+  user: sheet.user,
+  roleClass: sheet.roleClass,
+})
 
 export const useCharacterProfileStore = create<CharacterProfileStore>((set, get) => ({
   characters: [],

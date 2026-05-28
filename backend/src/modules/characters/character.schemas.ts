@@ -3,53 +3,50 @@ import { characterStatsSchema } from '../character-stats/character-stats.schemas
 
 const optionalNullableStringSchema = z.string().nullable().optional()
 
-const avatarUrlSchema = z
-  .string()
-  .url()
-  .or(z.literal(''))
-  .nullable()
-  .optional()
-
 export const characterParamsSchema = z
   .object({
     id: z.string().uuid(),
   })
   .strict()
 
-export const createCharacterSchema = z
+export const sessionCharacterParamsSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+  })
+  .strict()
+
+export const sessionCharacterCreationSchema = z
   .object({
     name: z.string().min(1, 'Name is required'),
-    race: z.string().min(1, 'Race is required'),
-    className: z.string().min(1, 'Class is required'),
-
-    level: z.number().int().min(1).max(20).default(1),
-
+    roleClassId: z.string().uuid(),
     description: optionalNullableStringSchema,
-    alignment: optionalNullableStringSchema,
-    background: optionalNullableStringSchema,
-    avatarUrl: avatarUrlSchema,
-
-    speed: z.number().int().min(0).default(30),
-
+    professionalFunction: optionalNullableStringSchema,
     baseStats: characterStatsSchema.optional(),
+  })
+  .strict()
+
+export const createCharacterSchema = sessionCharacterCreationSchema
+  .extend({
+    sessionId: z.string().uuid(),
   })
   .strict()
 
 export const updateCharacterSchema = z
   .object({
     name: z.string().min(1, 'Name is required').optional(),
-    race: z.string().min(1, 'Race is required').optional(),
-    className: z.string().min(1, 'Class is required').optional(),
-
+    roleClassId: z.string().uuid().nullable().optional(),
     description: optionalNullableStringSchema,
-    alignment: optionalNullableStringSchema,
-    background: optionalNullableStringSchema,
-    avatarUrl: avatarUrlSchema,
-
-    speed: z.number().int().min(0).optional(),
+    professionalFunction: optionalNullableStringSchema,
+    currentFatigue: z.number().int().min(0).optional(),
   })
   .strict()
 
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>
+export type SessionCharacterParamsInput = z.infer<
+  typeof sessionCharacterParamsSchema
+>
+export type SessionCharacterCreationInput = z.infer<
+  typeof sessionCharacterCreationSchema
+>
 export type CreateCharacterInput = z.infer<typeof createCharacterSchema>
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>

@@ -1,37 +1,32 @@
 import type { ItemEffectDto } from '../calculation/item-effects.rules'
-import type { SkillBonus } from '../calculation/skills.rules'
-import type { SavingThrowBonus } from '../calculation/saving-throws.rules'
-import type { AbilityName, AbilityScores } from '../calculation/stats.rules'
+import type { AbilityScores } from '../calculation/stats.rules'
 
 export type AbilityModifiers = AbilityScores
 
-export type EquipmentSlot =
-  | 'mainHand'
-  | 'offHand'
-  | 'head'
-  | 'body'
-  | 'ring1'
-  | 'ring2'
-  | 'amulet'
-  | 'boots'
+export type RoleClassDto = {
+  id: string
+  name: string
+  description: string | null
+}
+
+export type CharacterUserDto = {
+  id: string
+  email: string
+  name: string
+  role: string
+}
 
 export type CharacterProfileDto = {
   id: string
+  userId: string
+  roleClassId: string | null
   name: string
-  race: string
-  className: string
-  level: number
-
   description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
-
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
-
+  professionalFunction: string | null
+  fatigueLimit: number
+  currentFatigue: number
+  roleClass: RoleClassDto | null
+  user: CharacterUserDto
   createdAt: Date
   updatedAt: Date
 }
@@ -42,37 +37,53 @@ export type CharacterStatsDto = {
   modifiers: AbilityModifiers
 }
 
-export type CharacterDerivedDto = {
-  maxHp: number
-  armorClass: number
-  initiative: number
-  passivePerception: number
-  proficiencyBonus: number
+export type CharacterFatigueDto = {
+  limit: number
+  current: number
+  remaining: number
 }
 
 export type CharacterItemDto = {
   id: string
   itemId: string
+  itemTemplateId: string | null
   name: string
   type: string | null
   effects: ItemEffectDto[]
-  allowedSlots: EquipmentSlot[]
-  isEquipped: boolean
-  equippedSlot: EquipmentSlot | null
   quantity: number
   notes: string | null
 }
 
 export type CharacterInventoryDto = {
   items: CharacterItemDto[]
-  equippedItems: CharacterItemDto[]
+}
+
+export type CharacterSessionDto = {
+  id: string
+  sessionId: string
+  status: string
+  scenario: {
+    id: string
+    title: string
+    description: string
+    domain: string
+    goal: string
+    difficulty: number
+  }
+  team: {
+    id: string
+    name: string
+    companyName: string | null
+  } | null
+  createdAt: Date
 }
 
 export type CharacterSheetDto = {
   character: CharacterProfileDto
+  user: CharacterUserDto
+  roleClass: RoleClassDto | null
   stats: CharacterStatsDto
-  derived: CharacterDerivedDto
-  skills: SkillBonus[]
-  savingThrows: SavingThrowBonus[]
+  fatigue: CharacterFatigueDto
   inventory: CharacterInventoryDto
+  sessions: CharacterSessionDto[]
 }

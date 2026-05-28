@@ -1,59 +1,57 @@
 import type { Prisma } from '@prisma/client'
 
+export const roleClassSelect = {
+  id: true,
+  name: true,
+  description: true,
+} as const
+
+export const characterProfileSelect = {
+  id: true,
+  userId: true,
+  roleClassId: true,
+  name: true,
+  description: true,
+  professionalFunction: true,
+  fatigueLimit: true,
+  currentFatigue: true,
+  roleClass: {
+    select: roleClassSelect,
+  },
+  stats: {
+    select: {
+      strength: true,
+      dexterity: true,
+      constitution: true,
+      intelligence: true,
+      wisdom: true,
+      charisma: true,
+    },
+  },
+  createdAt: true,
+  updatedAt: true,
+} as const
+
 export type CharacterProfileEntity = Prisma.CharacterGetPayload<{
-  select: {
-    id: true
-    userId: true
-
-    name: true
-    race: true
-    className: true
-    level: true
-
-    description: true
-    alignment: true
-    background: true
-    avatarUrl: true
-
-    currentHp: true
-    temporaryHp: true
-    speed: true
-    inspiration: true
-
-    stats: {
-      select: {
-        strength: true
-        dexterity: true
-        constitution: true
-        intelligence: true
-        wisdom: true
-        charisma: true
-      }
-    }
-
-    createdAt: true
-    updatedAt: true
-  }
+  select: typeof characterProfileSelect
 }>
+
+export type RoleClassDto = {
+  id: string
+  name: string
+  description: string | null
+}
 
 export type CharacterProfileDto = {
   id: string
-  userId: string | null
-
+  userId: string
+  roleClassId: string | null
+  roleClass: RoleClassDto | null
   name: string
-  race: string
-  className: string
-  level: number
-
   description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
-
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
+  professionalFunction: string | null
+  fatigueLimit: number
+  currentFatigue: number
   baseStats: {
     strength: number
     dexterity: number
@@ -62,9 +60,22 @@ export type CharacterProfileDto = {
     wisdom: number
     charisma: number
   } | null
-
   createdAt: Date
   updatedAt: Date
+}
+
+export function toRoleClassDto(
+  roleClass: CharacterProfileEntity['roleClass'],
+): RoleClassDto | null {
+  if (!roleClass) {
+    return null
+  }
+
+  return {
+    id: roleClass.id,
+    name: roleClass.name,
+    description: roleClass.description ?? null,
+  }
 }
 
 export function toCharacterProfileDto(
@@ -73,22 +84,13 @@ export function toCharacterProfileDto(
   return {
     id: character.id,
     userId: character.userId,
-
+    roleClassId: character.roleClassId,
+    roleClass: toRoleClassDto(character.roleClass),
     name: character.name,
-    race: character.race,
-    className: character.className,
-    level: character.level,
-
     description: character.description ?? null,
-    alignment: character.alignment ?? null,
-    background: character.background ?? null,
-    avatarUrl: character.avatarUrl ?? null,
-
-    currentHp: character.currentHp,
-    temporaryHp: character.temporaryHp,
-    speed: character.speed,
-    inspiration: character.inspiration,
-
+    professionalFunction: character.professionalFunction ?? null,
+    fatigueLimit: character.fatigueLimit,
+    currentFatigue: character.currentFatigue,
     baseStats: character.stats
       ? {
           strength: character.stats.strength,
@@ -99,7 +101,6 @@ export function toCharacterProfileDto(
           charisma: character.stats.charisma,
         }
       : null,
-
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
   }

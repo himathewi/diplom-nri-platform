@@ -1,6 +1,10 @@
-import { ForbiddenError, NotFoundError } from '../../shared/errors'
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '../../shared/errors'
 
-// Ошибка: персонаж не найден
 export class CharacterNotFoundError extends NotFoundError {
   constructor(id?: string) {
     super(
@@ -18,11 +22,60 @@ export class CharacterForbiddenError extends ForbiddenError {
   }
 }
 
-// Ошибка: атака не найдена
-// Ошибка: заклинание не найдено
-// Ошибка: атака не принадлежит персонажу
-// Ошибка: заклинание не принадлежит персонажу
-// Ошибка: предмет персонажа не найден
+export class SessionNotFoundError extends NotFoundError {
+  constructor(id?: string) {
+    super(
+      id ? `Session with id "${id}" not found` : 'Session not found',
+      id ? { sessionId: id } : undefined,
+    )
+  }
+}
+
+export class InvalidSessionStatusForCharacterCreationError extends ConflictError {
+  constructor(sessionId: string, status: string) {
+    super('Characters can be created only for planned sessions', {
+      sessionId,
+      status,
+    })
+  }
+}
+
+export class RoleClassNotFoundError extends NotFoundError {
+  constructor(id?: string) {
+    super(
+      id ? `Role class with id "${id}" not found` : 'Role class not found',
+      id ? { roleClassId: id } : undefined,
+    )
+  }
+}
+
+export class RoleClassNotAllowedError extends ForbiddenError {
+  constructor(sessionId: string, roleClassId: string) {
+    super('Selected role class is not allowed for this session', {
+      sessionId,
+      roleClassId,
+    })
+  }
+}
+
+export class CharacterAlreadyExistsForSessionError extends ConflictError {
+  constructor(sessionId: string, userId: string) {
+    super('User already has a character for this session', {
+      sessionId,
+      userId,
+    })
+  }
+}
+
+export class CurrentFatigueExceedsLimitError extends ValidationError {
+  constructor(currentFatigue: number, fatigueLimit: number) {
+    super('Current fatigue cannot exceed fatigue limit', {
+      currentFatigue,
+      fatigueLimit,
+    })
+  }
+}
+
 export class ItemNotFoundError extends NotFoundError {
   constructor(id?: string) {
     super(
@@ -32,7 +85,6 @@ export class ItemNotFoundError extends NotFoundError {
   }
 }
 
-// Ошибка: шаблон предмета не найден
 export class ItemTemplateNotFoundError extends NotFoundError {
   constructor(id?: string) {
     super(
@@ -42,7 +94,6 @@ export class ItemTemplateNotFoundError extends NotFoundError {
   }
 }
 
-// Ошибка: предмет не принадлежит этому персонажу
 export class ItemOwnershipError extends ForbiddenError {
   constructor(characterId?: string, itemId?: string) {
     super('Item does not belong to this character', {
@@ -52,45 +103,7 @@ export class ItemOwnershipError extends ForbiddenError {
   }
 }
 
-// Ошибка: предмет уже экипирован
-export class ItemAlreadyEquippedError extends ForbiddenError {
-  constructor(itemId?: string) {
-    super('Item is already equipped', {
-      itemId,
-    })
-  }
-}
-
-// Ошибка: предмет не экипирован
-export class ItemNotEquippedError extends ForbiddenError {
-  constructor(itemId?: string) {
-    super('Item is not equipped', {
-      itemId,
-    })
-  }
-}
-
-// Ошибка: у предмета отсутствует слот
-export class ItemSlotMissingError extends ForbiddenError {
-  constructor(itemId?: string) {
-    super('Item slot is missing', {
-      itemId,
-    })
-  }
-}
-
-// Ошибка: слот уже занят другим предметом
-export class ItemSlotAlreadyOccupiedError extends ForbiddenError {
-  constructor(equippedSlot: string, characterId?: string) {
-    super(`Item slot "${equippedSlot}" is already occupied`, {
-      equippedSlot,
-      characterId,
-    })
-  }
-}
-
-// Ошибка: некорректное количество предметов
-export class InvalidItemQuantityError extends ForbiddenError {
+export class InvalidItemQuantityError extends ValidationError {
   constructor(quantity?: number) {
     super('Invalid item quantity', {
       quantity,

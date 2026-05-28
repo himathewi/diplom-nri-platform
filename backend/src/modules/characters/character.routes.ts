@@ -2,167 +2,220 @@ import { FastifyInstance } from 'fastify'
 import {
   characterParamsSchema,
   createCharacterSchema,
+  sessionCharacterCreationSchema,
+  sessionCharacterParamsSchema,
   updateCharacterSchema,
 } from './character.schemas'
 import { characterService } from './character.service'
-import { CharacterForbiddenError, CharacterNotFoundError } from './errors'
 import {
   authMiddleware,
   getCurrentUser,
 } from '../../middlewares/auth.middleware'
 
 export async function characterRoutes(app: FastifyInstance) {
-  app.get('/characters', {
-    preHandler: authMiddleware,
-  }, async (request, reply) => {
-    const currentUser = getCurrentUser(request)
+  app.get(
+    '/sessions/:sessionId/character-options',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = sessionCharacterParamsSchema.safeParse(
+        request.params,
+      )
 
-    if (!currentUser) {
-      return reply.status(401).send({ message: 'Unauthorized' })
-    }
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
 
-    return characterService.getCharacters(currentUser)
-  })
+      const currentUser = getCurrentUser(request)
 
-  app.get('/characters/:id', {
-    preHandler: authMiddleware,
-  }, async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
 
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    const currentUser = getCurrentUser(request)
-
-    if (!currentUser) {
-      return reply.status(401).send({ message: 'Unauthorized' })
-    }
-
-    try {
-      return await characterService.getCharacterById(
-        paramsParsed.data.id,
+      return characterService.getCharacterOptions(
+        paramsParsed.data.sessionId,
         currentUser,
       )
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
+    },
+  )
+
+  app.post(
+    '/sessions/:sessionId/characters',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = sessionCharacterParamsSchema.safeParse(
+        request.params,
+      )
+      const bodyParsed = sessionCharacterCreationSchema.safeParse(request.body)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
       }
 
-      if (error instanceof CharacterForbiddenError) {
-        return reply.status(403).send({ message: error.message })
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
       }
 
-      throw error
-    }
-  })
+      const currentUser = getCurrentUser(request)
 
-  app.post('/characters', {
-    preHandler: authMiddleware,
-  }, async (request, reply) => {
-    const bodyParsed = createCharacterSchema.safeParse(request.body)
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
 
-    if (!bodyParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: bodyParsed.error.flatten(),
-      })
-    }
+      const character = await characterService.createCharacterForSession(
+        paramsParsed.data.sessionId,
+        bodyParsed.data,
+        currentUser,
+      )
 
-    const currentUser = getCurrentUser(request)
+      return reply.status(201).send(character)
+    },
+  )
 
-    if (!currentUser) {
-      return reply.status(401).send({ message: 'Unauthorized' })
-    }
+  app.get(
+    '/characters',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const currentUser = getCurrentUser(request)
 
-    const character = await characterService.createCharacter(
-      bodyParsed.data,
-      currentUser,
-    )
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
 
-    return reply.status(201).send(character)
-  })
+      return characterService.getCharacters(currentUser)
+    },
+  )
 
-  app.patch('/characters/:id', {
-    preHandler: authMiddleware,
-  }, async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-    const bodyParsed = updateCharacterSchema.safeParse(request.body)
+  app.get(
+    '/characters/:id',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = characterParamsSchema.safeParse(request.params)
 
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
 
-    if (!bodyParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: bodyParsed.error.flatten(),
-      })
-    }
+      const currentUser = getCurrentUser(request)
 
-    const currentUser = getCurrentUser(request)
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
 
-    if (!currentUser) {
-      return reply.status(401).send({ message: 'Unauthorized' })
-    }
+      return characterService.getCharacterById(paramsParsed.data.id, currentUser)
+    },
+  )
 
-    try {
-      return await characterService.updateCharacter(
+  app.post(
+    '/characters',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const bodyParsed = createCharacterSchema.safeParse(request.body)
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
+
+      const character = await characterService.createCharacter(
+        bodyParsed.data,
+        currentUser,
+      )
+
+      return reply.status(201).send(character)
+    },
+  )
+
+  app.patch(
+    '/characters/:id',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = characterParamsSchema.safeParse(request.params)
+      const bodyParsed = updateCharacterSchema.safeParse(request.body)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
+      }
+
+      return characterService.updateCharacter(
         paramsParsed.data.id,
         bodyParsed.data,
         currentUser,
       )
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
+    },
+  )
+
+  app.delete(
+    '/characters/:id',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = characterParamsSchema.safeParse(request.params)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
       }
 
-      if (error instanceof CharacterForbiddenError) {
-        return reply.status(403).send({ message: error.message })
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({ message: 'Unauthorized' })
       }
 
-      throw error
-    }
-  })
-
-  app.delete('/characters/:id', {
-    preHandler: authMiddleware,
-  }, async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    const currentUser = getCurrentUser(request)
-
-    if (!currentUser) {
-      return reply.status(401).send({ message: 'Unauthorized' })
-    }
-
-    try {
       await characterService.deleteCharacter(paramsParsed.data.id, currentUser)
 
       return reply.status(204).send()
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
-      }
-
-      if (error instanceof CharacterForbiddenError) {
-        return reply.status(403).send({ message: error.message })
-      }
-
-      throw error
-    }
-  })
+    },
+  )
 }

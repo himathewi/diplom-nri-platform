@@ -6,7 +6,6 @@ import type {
   CreateItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
-import { ItemSlotAlreadyOccupiedError } from '../characters/errors'
 
 type CreateCharacterItemRepositoryInput = Omit<
   CreateItemInput,
@@ -55,17 +54,6 @@ export const characterInventoryRepository = {
     })
   },
 
-  findEquippedItemBySlot(characterId: string, equippedSlot: string) {
-    return prisma.characterItem.findFirst({
-      where: {
-        characterId,
-        isEquipped: true,
-        equippedSlot,
-      },
-      include: characterItemInclude,
-    })
-  },
-
   findAllItemTemplates() {
     return prisma.itemTemplate.findMany({
       orderBy: {
@@ -86,34 +74,12 @@ export const characterInventoryRepository = {
     return prisma.characterItem.create({
       data: {
         characterId,
-
         itemTemplateId: data.itemTemplateId ?? null,
-
-        /**
-         * Если nameSnapshot не пришёл, service должен был подставить
-         * имя из ItemTemplate до вызова repository.
-         */
         nameSnapshot: data.nameSnapshot,
-
         quantity: data.quantity ?? 1,
-
         notes: data.notes ?? null,
-
-        /**
-         * Игровые поля конкретного CharacterItem.
-         *
-         * Они нужны для кастомных предметов без ItemTemplate:
-         * - кастомный меч
-         * - кастомное кольцо
-         * - кастомная броня
-         * - предмет с собственными эффектами
-         */
         type: data.type ?? null,
-
-        allowedSlots: toNullableJsonInput(data.allowedSlots),
-
         effects: toNullableJsonInput(data.effects),
-
       },
       include: characterItemInclude,
     })
@@ -128,27 +94,18 @@ export const characterInventoryRepository = {
         ...(data.nameSnapshot !== undefined && {
           nameSnapshot: data.nameSnapshot,
         }),
-
         ...(data.quantity !== undefined && {
           quantity: data.quantity,
         }),
-
         ...(data.notes !== undefined && {
           notes: data.notes,
         }),
-
         ...(data.type !== undefined && {
           type: data.type,
         }),
-
-        ...(data.allowedSlots !== undefined && {
-          allowedSlots: toNullableJsonInput(data.allowedSlots),
-        }),
-
         ...(data.effects !== undefined && {
           effects: toNullableJsonInput(data.effects),
         }),
-
       },
       include: characterItemInclude,
     })
@@ -158,47 +115,6 @@ export const characterInventoryRepository = {
     return prisma.characterItem.delete({
       where: {
         id: itemId,
-      },
-      include: characterItemInclude,
-    })
-  },
-
-  async equipItem(
-    characterId: string,
-    itemId: string,
-    equippedSlot: string,
-  ) {
-    try {
-      return await prisma.characterItem.update({
-        where: {
-          id: itemId,
-        },
-        data: {
-          isEquipped: true,
-          equippedSlot,
-        },
-        include: characterItemInclude,
-      })
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
-      }
-
-      throw error
-    }
-  },
-
-  unequipItem(itemId: string) {
-    return prisma.characterItem.update({
-      where: {
-        id: itemId,
-      },
-      data: {
-        isEquipped: false,
-        equippedSlot: null,
       },
       include: characterItemInclude,
     })

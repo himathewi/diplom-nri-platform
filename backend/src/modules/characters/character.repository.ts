@@ -1,58 +1,77 @@
 import { prisma } from '../../lib/prisma'
 import type {
-  CreateCharacterInput,
+  SessionCharacterCreationInput,
   UpdateCharacterInput,
 } from './character.schemas'
+import {
+  characterProfileSelect,
+  roleClassSelect,
+} from './character.mappers'
 
-const characterProfileSelect = {
+const userSelect = {
   id: true,
-  userId: true,
-
+  email: true,
   name: true,
-  race: true,
-  className: true,
-  level: true,
-
-  description: true,
-  alignment: true,
-  background: true,
-  avatarUrl: true,
-
-  currentHp: true,
-  temporaryHp: true,
-  speed: true,
-  inspiration: true,
-
-  stats: {
-    select: {
-      strength: true,
-      dexterity: true,
-      constitution: true,
-      intelligence: true,
-      wisdom: true,
-      charisma: true,
-    },
-  },
-
+  role: true,
   createdAt: true,
   updatedAt: true,
 } as const
 
 const characterSheetInclude = {
+  user: {
+    select: userSelect,
+  },
+  roleClass: {
+    select: roleClassSelect,
+  },
   stats: true,
   items: {
     include: {
       itemTemplate: true,
     },
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  sessionParticipants: {
+    include: {
+      session: {
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          scenario: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              domain: true,
+              goal: true,
+              difficulty: true,
+            },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              companyName: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
   },
 } as const
 
-type CreateCharacterRepositoryInput = CreateCharacterInput & {
-  userId: string
-  currentHp: number
-  temporaryHp: number
-  inspiration: boolean
-}
+type CreateCharacterForSessionRepositoryInput =
+  SessionCharacterCreationInput & {
+    userId: string
+    sessionId: string
+    fatigueLimit: number
+  }
 
 export const characterRepository = {
   findAll() {
@@ -93,6 +112,23 @@ export const characterRepository = {
     })
   },
 
+  findByIdForRules(id: string) {
+    return prisma.character.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        fatigueLimit: true,
+        currentFatigue: true,
+        sessionParticipants: {
+          select: {
+            sessionId: true,
+          },
+        },
+      },
+    })
+  },
+
   findByIdForSheet(id: string) {
     return prisma.character.findUnique({
       where: { id },
@@ -100,29 +136,93 @@ export const characterRepository = {
     })
   },
 
-  create(data: CreateCharacterRepositoryInput) {
+  findRoleClassById(roleClassId: string) {
+    return prisma.roleClass.findUnique({
+      where: {
+        id: roleClassId,
+      },
+      select: roleClassSelect,
+    })
+  },
+
+  findSessionForCharacterOptions(sessionId: string) {
+    return prisma.gameSession.findUnique({
+      where: {
+        id: sessionId,
+      },
+      select: {
+        id: true,
+        status: true,
+        moderatorId: true,
+        teamId: true,
+        scenario: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            domain: true,
+            goal: true,
+            difficulty: true,
+          },
+        },
+        team: {
+          select: {
+            id: true,
+            members: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+        allowedRoleClasses: {
+          include: {
+            roleClass: {
+              select: roleClassSelect,
+            },
+          },
+        },
+        allowedItemTemplates: {
+          include: {
+            itemTemplate: true,
+          },
+        },
+      },
+    })
+  },
+
+  countCharactersBySessionAndUser(sessionId: string, userId: string) {
+    return prisma.sessionParticipant.count({
+      where: {
+        sessionId,
+        character: {
+          userId,
+        },
+      },
+    })
+  },
+
+  countAllowedRoleClassForSessions(sessionIds: string[], roleClassId: string) {
+    return prisma.sessionAllowedRoleClass.count({
+      where: {
+        sessionId: {
+          in: sessionIds,
+        },
+        roleClassId,
+      },
+    })
+  },
+
+  createForSession(data: CreateCharacterForSessionRepositoryInput) {
     return prisma.character.create({
       data: {
         name: data.name,
         userId: data.userId,
-        race: data.race,
-        className: data.className,
-        level: data.level ?? 1,
-
+        roleClassId: data.roleClassId,
         description: data.description ?? null,
-        alignment: data.alignment ?? null,
-        background: data.background ?? null,
-
-        avatarUrl:
-          typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
-            ? data.avatarUrl
-            : null,
-
-        currentHp: data.currentHp,
-        temporaryHp: data.temporaryHp,
-        speed: data.speed ?? 30,
-        inspiration: data.inspiration,
-
+        professionalFunction: data.professionalFunction ?? null,
+        fatigueLimit: data.fatigueLimit,
+        currentFatigue: 0,
         stats: {
           create: {
             strength: data.baseStats?.strength ?? 10,
@@ -131,6 +231,11 @@ export const characterRepository = {
             intelligence: data.baseStats?.intelligence ?? 10,
             wisdom: data.baseStats?.wisdom ?? 10,
             charisma: data.baseStats?.charisma ?? 10,
+          },
+        },
+        sessionParticipants: {
+          create: {
+            sessionId: data.sessionId,
           },
         },
       },
@@ -143,59 +248,19 @@ export const characterRepository = {
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.race !== undefined && { race: data.race }),
-        ...(data.className !== undefined && { className: data.className }),
-
+        ...(data.roleClassId !== undefined && {
+          roleClassId: data.roleClassId,
+        }),
         ...(data.description !== undefined && {
           description: data.description,
         }),
-        ...(data.alignment !== undefined && {
-          alignment: data.alignment,
+        ...(data.professionalFunction !== undefined && {
+          professionalFunction: data.professionalFunction,
         }),
-        ...(data.background !== undefined && {
-          background: data.background,
+        ...(data.currentFatigue !== undefined && {
+          currentFatigue: data.currentFatigue,
         }),
-
-        ...(data.avatarUrl !== undefined && {
-          avatarUrl:
-            typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
-              ? data.avatarUrl
-              : null,
-        }),
-
-        ...(data.speed !== undefined && { speed: data.speed }),
       },
-      select: characterProfileSelect,
-    })
-  },
-
-  findHealthStateById(id: string) {
-    return prisma.character.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        level: true,
-        currentHp: true,
-        temporaryHp: true,
-        stats: {
-          select: {
-            constitution: true,
-          },
-        },
-      },
-    })
-  },
-
-  updateHealthState(
-    id: string,
-    data: {
-      currentHp: number
-      temporaryHp: number
-    },
-  ) {
-    return prisma.character.update({
-      where: { id },
-      data,
       select: characterProfileSelect,
     })
   },
