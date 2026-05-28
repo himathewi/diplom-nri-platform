@@ -11,6 +11,8 @@ import { useReportsStore } from '../../stores/reportsStore'
 import { useSessionEventsStore } from '../../stores/sessionEventsStore'
 import { useSessionsStore } from '../../stores/sessionsStore'
 import type { SessionEventType } from '../../types/sessionEvent'
+import { useInvitationsStore } from '../../stores/invitationsStore'
+import type { InvitationType } from '../../types/invitation'  
 
 export function SessionDetailsPage() {
   const { id } = useParams()
@@ -61,6 +63,18 @@ export function SessionDetailsPage() {
     clearSelectedReport,
     clearError: clearReportError,
   } = useReportsStore()
+  const {
+    invitations,
+    createdInviteUrl,
+    createdCode,
+    isLoading: isInvitationsLoading,
+    error: invitationsError,
+    fetchSessionInvitations,
+    createSessionInvitation,
+    revokeInvitation,
+    clearInvitationResult,
+    clearError: clearInvitationsError,
+} = useInvitationsStore()
   
   const [eventTitle, setEventTitle] = useState('')
   const [eventDescription, setEventDescription] = useState('')
@@ -73,6 +87,8 @@ export function SessionDetailsPage() {
   const [decisionResult, setDecisionResult] = useState('')
   const [decisionScore, setDecisionScore] = useState(3)
   const [moderatorComment, setModeratorComment] = useState('')
+  const [invitationType, setInvitationType] = useState<InvitationType>('LINK')
+  const [invitationExpiresInHours, setInvitationExpiresInHours] = useState(24)
 
   useEffect(() => {
     if (id) {
@@ -122,6 +138,21 @@ export function SessionDetailsPage() {
     fetchReportBySessionId,
     clearSelectedReport,
     clearReportError,
+  ])
+  useEffect(() => {
+  if (id) {
+    void fetchSessionInvitations(id)
+  }
+
+  return () => {
+    clearInvitationResult()
+    clearInvitationsError()
+  }
+  }, [
+    id,
+    fetchSessionInvitations,
+    clearInvitationResult,
+    clearInvitationsError,
   ])
 
   async function handleAddEvent(event: FormEvent<HTMLFormElement>) {
@@ -243,6 +274,30 @@ async function handleDeleteReport() {
   }
 
   await deleteReport(selectedReport.id)
+}
+async function handleCreateInvitation(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault()
+  clearInvitationsError()
+  clearInvitationResult()
+
+  if (!id || selectedSession?.status !== 'PLANNED') {
+    return
+  }
+
+  await createSessionInvitation(id, {
+    type: invitationType,
+    expiresInHours: invitationExpiresInHours,
+  })
+}
+
+async function handleRevokeInvitation(invitationId: string) {
+  const confirmed = window.confirm('Отозвать приглашение?')
+
+  if (!confirmed) {
+    return
+  }
+
+  await revokeInvitation(invitationId)
 }
 
   async function handleStartSession() {
@@ -483,6 +538,146 @@ async function handleDeleteReport() {
                       <span>ID: {participant.id}</span>
                     </div>
                   </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
+        <article className="details-card">
+          <h2>Приглашения участников</h2>
+
+          {selectedSession.status === 'PLANNED' ? (
+            <form className="task-form invitation-form" onSubmit={handleCreateInvitation}>
+              <label className="form-field">
+                <span>Тип приглашения</span>
+
+                <select
+                  value={invitationType}
+                  onChange={(event) =>
+                    setInvitationType(event.target.value as InvitationType)
+                  }
+                >
+                  <option value="LINK">Ссылка-приглашение</option>
+                  <option value="CODE">6-значный код</option>
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>Срок действия, часов</span>
+
+                <input
+                  min={1}
+                  max={168}
+                  type="number"
+                  value={invitationExpiresInHours}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    setInvitationExpiresInHours(Math.min(168, Math.max(1, value)))
+                  }}
+                />
+              </label>
+
+              {invitationsError && (
+                <div className="alert-error">
+                  <p>{invitationsError}</p>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button
+                  className="button-primary"
+                  type="submit"
+                  disabled={isInvitationsLoading}
+                >
+                  {isInvitationsLoading ? 'Создание...' : 'Создать приглашение'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="info-box">
+              <h3>Создание приглашений недоступно</h3>
+              <p>
+                Приглашения можно создавать только до запуска сессии. После запуска
+                состав участников фиксируется.
+              </p>
+            </div>
+          )}
+
+          {(createdInviteUrl || createdCode) && (
+            <div className="invitation-result">
+              <h3>Приглашение создано</h3>
+
+              {createdInviteUrl && (
+                <label className="form-field">
+                  <span>Ссылка</span>
+                  <input readOnly value={createdInviteUrl} />
+                </label>
+              )}
+
+              {createdCode && (
+                <label className="form-field">
+                  <span>Код приглашения</span>
+                  <input readOnly value={createdCode} />
+                </label>
+              )}
+            </div>
+          )}
+
+          {isInvitationsLoading && invitations.length === 0 && (
+            <p>Загрузка приглашений...</p>
+          )}
+
+          {!isInvitationsLoading && invitations.length === 0 && (
+            <div className="empty-state">
+              <h2>Приглашений пока нет</h2>
+              <p>
+                Создайте ссылку или код, чтобы участник мог присоединиться к
+                запланированной игровой сессии.
+              </p>
+            </div>
+          )}
+
+          {invitations.length > 0 && (
+            <div className="invitations-list">
+              {invitations.map((invitation) => (
+                <article className="invitation-card" key={invitation.id}>
+                  <div className="task-card__header">
+                    <div>
+                      <h3>
+                        {invitation.type === 'LINK'
+                          ? 'Ссылка-приглашение'
+                          : 'Код приглашения'}
+                      </h3>
+
+                      <div className="scenario-card__meta">
+                        <span>Статус: {invitation.status}</span>
+                        <span>
+                          Действует до:{' '}
+                          {new Date(invitation.expiresAt).toLocaleString()}
+                        </span>
+                        <span>Попыток: {invitation.attemptsCount}</span>
+                      </div>
+                    </div>
+
+                    {selectedSession.status === 'PLANNED' &&
+                      invitation.status === 'PENDING' && (
+                        <button
+                          className="button-ghost-danger"
+                          type="button"
+                          disabled={isInvitationsLoading}
+                          onClick={() => handleRevokeInvitation(invitation.id)}
+                        >
+                          Отозвать
+                        </button>
+                      )}
+                  </div>
+
+                  {invitation.invitedUser && (
+                    <p>
+                      Участник: {invitation.invitedUser.name} ·{' '}
+                      {invitation.invitedUser.email}
+                    </p>
+                  )}
                 </article>
               ))}
             </div>

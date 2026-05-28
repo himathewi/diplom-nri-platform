@@ -29,7 +29,8 @@ export type SessionInvitation = {
 
 export type CreateSessionInvitationPayload = {
   type: InvitationType
-  expiresAt?: string
+  invitedUserId?: string | null
+  expiresInHours?: number
 }
 
 export type CreateSessionInvitationResponse = {

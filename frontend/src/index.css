@@ -731,3 +731,36 @@ button:disabled {
   margin: 0;
   font-size: 15px;
 }
+.invitation-form {
+  margin-bottom: 18px;
+}
+
+.invitation-result {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #d7e8dd;
+  border-radius: 14px;
+  background: #f4fbf6;
+}
+
+.invitation-result h3 {
+  margin: 0 0 12px;
+}
+
+.invitations-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.invitation-card {
+  padding: 18px;
+  border: 1px solid #e4eaf3;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.invitation-card p {
+  margin: 12px 0 0;
+  font-size: 15px;
+}
