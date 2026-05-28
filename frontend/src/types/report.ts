@@ -1,4 +1,4 @@
-export type ReportUserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' | 'EXPERT'
+export type ReportUserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' 
 
 export type ReportSessionStatus = 'PLANNED' | 'ACTIVE' | 'FINISHED'
 

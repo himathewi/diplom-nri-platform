@@ -6,7 +6,7 @@ const roleLabels: Record<string, string> = {
   ADMIN: 'Администратор',
   MODERATOR: 'Модератор',
   PARTICIPANT: 'Участник',
-  EXPERT: 'Эксперт',
+
 }
 
 export function ProfilePage() {

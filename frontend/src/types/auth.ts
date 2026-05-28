@@ -1,26 +1,19 @@
-export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' | 'EXPERT'
+import type { User } from './user'
 
-export interface AuthUser {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-  createdAt: string
-  updatedAt: string
-}
+export type AuthUser = User
 
-export interface RegisterInput {
+export type RegisterInput = {
   email: string
   password: string
   name: string
 }
 
-export interface LoginInput {
+export type LoginInput = {
   email: string
   password: string
 }
 
-export interface AuthResponse {
+export type AuthResponse = {
   user: AuthUser
   token: string
 }

@@ -1,6 +1,6 @@
 export type SessionStatus = 'PLANNED' | 'ACTIVE' | 'FINISHED'
 
-export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' | 'EXPERT'
+export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' 
 
 export type ScenarioDomain =
   | 'CROP_PRODUCTION'
