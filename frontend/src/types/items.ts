@@ -1,87 +1,87 @@
-import type { Stats } from './characters'
+import type { User } from './user'
 
 export type ItemType =
-  | 'tool'
-  | 'resource'
-  | 'document'
-  | 'equipment'
-  | 'consumable'
-  | 'misc'
+  | 'TOOL'
+  | 'DOCUMENT'
+  | 'EQUIPMENT'
+  | 'SENSOR'
+  | 'CONSUMABLE'
+  | 'OTHER'
 
-export type ItemEffect = {
-  stat?: keyof Stats
-  value?: number
-}
-
-export type ItemTemplateResponse = {
+export type CatalogItem = {
   id: string
   name: string
-  type: ItemType | string | null
+  type: ItemType
   description: string | null
-  effects: ItemEffect[] | null
+  isPublic: boolean
+  isActive: boolean
+  createdById: string | null
   createdAt: string
   updatedAt: string
+
+  createdBy?: User | null
 }
 
-export type CharacterItemResponse = {
+export type SessionAllowedItem = {
   id: string
-  characterId: string
-  itemTemplateId: string | null
+  sessionId: string
+  itemId: string
+  quantity: number
+  isVisible: boolean
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+
+  item: CatalogItem
+}
+
+export type ParticipantItem = {
+  id: string
+  participantId: string
+  itemId: string | null
   nameSnapshot: string
   quantity: number
   notes: string | null
-  type: ItemType | string | null
-  effects: ItemEffect[] | null
+  isUsed: boolean
   createdAt: string
   updatedAt: string
-  itemTemplate: ItemTemplateResponse | null
+
+  item?: CatalogItem | null
 }
 
-export type Item = {
-  id: string
+export type CreateCatalogItemPayload = {
   name: string
-  type: ItemType | string
-  effects: ItemEffect[]
-}
-
-export type ItemTemplate = {
-  id: string
-  name: string
-  type: ItemType | string | null
+  type?: ItemType
   description?: string | null
-  effects?: ItemEffect[] | null
-  createdAt?: string | Date
-  updatedAt?: string | Date
+  isPublic?: boolean
+  isActive?: boolean
 }
 
-export type CharacterItem = {
-  id: string
-  characterId?: string
-  itemTemplateId?: string | null
+export type UpdateCatalogItemPayload = Partial<CreateCatalogItemPayload>
 
-  nameSnapshot?: string | null
-  quantity: number
-  notes: string | null
-
-  type?: ItemType | string | null
-  effects?: ItemEffect[] | null
-
-  createdAt?: string | Date
-  updatedAt?: string | Date
-
-  itemTemplate?: ItemTemplate | null
-  template?: ItemTemplate | null
-}
-
-export type CharacterItemForSheet = {
-  id: string
+export type AllowSessionItemPayload = {
   itemId: string
-  characterId?: string
-  itemTemplateId?: string | null
-  nameSnapshot?: string | null
-  name: string
-  type: ItemType | string | null
-  effects: ItemEffect[]
-  quantity: number
-  notes: string | null
+  quantity?: number
+  isVisible?: boolean
+  notes?: string | null
+}
+
+export type UpdateSessionAllowedItemPayload = {
+  quantity?: number
+  isVisible?: boolean
+  notes?: string | null
+}
+
+export type GrantParticipantItemPayload = {
+  itemId?: string | null
+  nameSnapshot?: string
+  quantity?: number
+  notes?: string | null
+}
+
+export type UpdateParticipantItemPayload = {
+  nameSnapshot?: string
+  quantity?: number
+  notes?: string | null
+  isUsed?: boolean
 }
