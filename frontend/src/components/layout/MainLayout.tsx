@@ -7,6 +7,7 @@ const navItems = [
   { to: '/teams', label: 'Команды' },
   { to: '/scenarios', label: 'Сценарии' },
   { to: '/sessions', label: 'Сессии' },
+  { to: '/invitations/code', label: 'Код приглашения' },
   { to: '/profile', label: 'Профиль' },
 ]
 

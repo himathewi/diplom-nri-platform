@@ -16,6 +16,8 @@ import { GuestRoute } from './GuestRoute'
 import { ProtectedRoute } from './ProtectedRoute'
 import { CreateSessionPage } from '../pages/Sessions/CreateSessionPage'
 import { SessionDetailsPage } from '../pages/Sessions/SessionDetailsPage'
+import { InvitationCodePage } from '../pages/Invitations/InvitationCodePage'
+import { InvitationLinkPage } from '../pages/Invitations/InvitationLinkPage'
 
 export function AppRouter() {
   return (
@@ -43,6 +45,8 @@ export function AppRouter() {
             <Route path="/sessions" element={<SessionsPage />} />
             <Route path="/sessions/:id" element={<SessionDetailsPage />} />
             <Route path="/sessions/create" element={<CreateSessionPage />} />
+            <Route path="/invitations/code" element={<InvitationCodePage />} />
+            <Route path="/invitations/link/:token" element={<InvitationLinkPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />
