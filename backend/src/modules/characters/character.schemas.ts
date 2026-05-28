@@ -37,12 +37,6 @@ export const sessionCharacterCreationSchema = z
   })
   .strict()
 
-export const createCharacterSchema = sessionCharacterCreationSchema
-  .extend({
-    sessionId: z.string().uuid(),
-  })
-  .strict()
-
 export const updateCharacterSchema = z
   .object({
     name: z.string().min(1, 'Name is required').optional(),
@@ -55,15 +49,19 @@ export const updateCharacterSchema = z
   .strict()
 
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>
+
 export type SessionCharacterParamsInput = z.infer<
   typeof sessionCharacterParamsSchema
 >
+
 export type CharacterStatsInput = z.infer<typeof characterStatsSchema>
+
 export type UpdateCharacterStatsInput = z.infer<
   typeof updateCharacterStatsSchema
 >
+
 export type SessionCharacterCreationInput = z.infer<
   typeof sessionCharacterCreationSchema
 >
-export type CreateCharacterInput = z.infer<typeof createCharacterSchema>
+
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>

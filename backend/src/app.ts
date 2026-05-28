@@ -16,12 +16,11 @@ import { decisionsRoutes } from "./modules/decisions/decisions.routes";
 import { teamMetricsRoutes } from "./modules/team-metrics/team-metrics.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
 
+import { characterSheetRepository } from './modules/character-sheet/character-sheet.repository'
 import { characterRoutes } from "./modules/characters/character.routes";
 import { characterStatsRoutes } from "./modules/character-stats/character-stats.routes";
 import { roleClassesRoutes } from "./modules/role-classes/role-classes.routes";
 import { itemsRoutes } from "./modules/items/items.routes";
-
-import { characterRepository } from "./modules/characters/character.repository";
 
 import { characterSheetRoutes } from "./modules/character-sheet/character-sheet.routes";
 import { CharacterSheetService } from "./modules/character-sheet/character-sheet.service";
@@ -90,13 +89,9 @@ export async function buildApp() {
     };
   });
 
-  const characterForSheetRepository = {
-    findByIdForSheet: (id: string) => characterRepository.findByIdForSheet(id)
-  };
-
   const characterSheetService = new CharacterSheetService(
-    characterForSheetRepository
-  );
+    characterSheetRepository,
+  )
 
   await app.register(authRoutes);
   await app.register(usersRoutes);

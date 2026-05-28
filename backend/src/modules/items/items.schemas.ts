@@ -37,7 +37,6 @@ export const createCatalogItemSchema = z
     name: z.string().min(1, 'Item name is required'),
     type: z.nativeEnum(ItemType).default(ItemType.OTHER),
     description: z.string().nullable().optional(),
-    attributeEffects: z.array(z.unknown()).nullable().optional(),
     isPublic: z.boolean().default(false),
     isActive: z.boolean().default(true),
   })
@@ -48,7 +47,6 @@ export const updateCatalogItemSchema = z
     name: z.string().min(1, 'Item name is required').optional(),
     type: z.nativeEnum(ItemType).optional(),
     description: z.string().nullable().optional(),
-    attributeEffects: z.array(z.unknown()).nullable().optional(),
     isPublic: z.boolean().optional(),
     isActive: z.boolean().optional(),
   })

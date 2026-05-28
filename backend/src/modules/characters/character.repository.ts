@@ -11,15 +11,6 @@ import {
   roleClassSelect,
 } from './character.mappers'
 
-const userSelect = {
-  id: true,
-  email: true,
-  name: true,
-  role: true,
-  createdAt: true,
-  updatedAt: true,
-} as const
-
 const sessionScenarioSelect = {
   id: true,
   title: true,
@@ -32,54 +23,6 @@ const sessionScenarioSelect = {
       code: true,
       name: true,
       description: true,
-    },
-  },
-} as const
-
-const characterSheetInclude = {
-  user: {
-    select: userSelect,
-  },
-  roleClass: {
-    select: roleClassSelect,
-  },
-  stats: true,
-  sessionParticipants: {
-    include: {
-      user: {
-        select: userSelect,
-      },
-      session: {
-        select: {
-          id: true,
-          status: true,
-          startedAt: true,
-          finishedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          scenario: {
-            select: sessionScenarioSelect,
-          },
-          team: {
-            select: {
-              id: true,
-              name: true,
-              companyName: true,
-            },
-          },
-        },
-      },
-      items: {
-        include: {
-          item: true,
-        },
-        orderBy: {
-          createdAt: 'asc' as const,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: 'asc' as const,
     },
   },
 } as const
@@ -160,6 +103,24 @@ export const characterRepository = {
     })
   },
 
+  findAllForModerator(moderatorId: string) {
+    return prisma.character.findMany({
+      where: {
+        sessionParticipants: {
+          some: {
+            session: {
+              moderatorId,
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: characterProfileSelect,
+    })
+  },
+
   findById(id: string) {
     return prisma.character.findUnique({
       where: {
@@ -177,6 +138,15 @@ export const characterRepository = {
       select: {
         id: true,
         userId: true,
+        sessionParticipants: {
+          select: {
+            session: {
+              select: {
+                moderatorId: true,
+              },
+            },
+          },
+        },
       },
     })
   },
@@ -199,15 +169,6 @@ export const characterRepository = {
           },
         },
       },
-    })
-  },
-
-  findByIdForSheet(id: string) {
-    return prisma.character.findUnique({
-      where: {
-        id,
-      },
-      include: characterSheetInclude,
     })
   },
 

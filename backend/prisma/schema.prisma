@@ -222,13 +222,33 @@ model ScenarioTask {
   moderatorNotes     String?
   isVisibleByDefault Boolean @default(false)
 
-  scenario     Scenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
-  sessionTasks SessionTask[]
+  scenario      Scenario                   @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  sessionTasks  SessionTask[]
+  requiredItems ScenarioTaskRequiredItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([scenarioId])
+}
+
+model ScenarioTaskRequiredItem {
+  id             String @id @default(uuid())
+  scenarioTaskId String
+  itemId         String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  scenarioTask ScenarioTask @relation(fields: [scenarioTaskId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scenarioTaskId, itemId])
+  @@index([scenarioTaskId])
+  @@index([itemId])
 }
 
 model TaskTemplate {
@@ -250,13 +270,33 @@ model TaskTemplate {
   direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
   createdBy User?              @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  sessionTasks SessionTask[]
+  requiredItems TaskTemplateRequiredItem[]
+  sessionTasks  SessionTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([directionId])
   @@index([createdById])
+}
+
+model TaskTemplateRequiredItem {
+  id             String @id @default(uuid())
+  taskTemplateId String
+  itemId         String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  taskTemplate TaskTemplate @relation(fields: [taskTemplateId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskTemplateId, itemId])
+  @@index([taskTemplateId])
+  @@index([itemId])
 }
 
 model GameSession {
@@ -360,12 +400,15 @@ model Item {
   type        ItemType @default(OTHER)
   description String?
 
-  attributeEffects Json?
-  isPublic         Boolean @default(false)
-  isActive         Boolean @default(true)
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true)
 
   allowedSessions  SessionAllowedItem[]
   participantItems ParticipantItem[]
+
+  requiredByScenarioTasks ScenarioTaskRequiredItem[]
+  requiredByTaskTemplates TaskTemplateRequiredItem[]
+  requiredBySessionTasks  SessionTaskRequiredItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -432,7 +475,9 @@ model SessionTask {
   session        GameSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   scenarioTask   ScenarioTask? @relation(fields: [scenarioTaskId], references: [id], onDelete: SetNull)
   sourceTemplate TaskTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
-  decisions      Decision[]
+
+  requiredItems SessionTaskRequiredItem[]
+  decisions     Decision[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -441,6 +486,25 @@ model SessionTask {
   @@index([sessionId])
   @@index([scenarioTaskId])
   @@index([sourceTemplateId])
+}
+
+model SessionTaskRequiredItem {
+  id            String @id @default(uuid())
+  sessionTaskId String
+  itemId        String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  sessionTask SessionTask @relation(fields: [sessionTaskId], references: [id], onDelete: Cascade)
+  item        Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionTaskId, itemId])
+  @@index([sessionTaskId])
+  @@index([itemId])
 }
 
 model SessionEvent {

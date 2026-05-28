@@ -1,8 +1,5 @@
 import type { Prisma } from '@prisma/client'
-
-function getAbilityModifier(value: number) {
-  return Math.floor((value - 10) / 2)
-}
+import { getAbilityModifier } from '../character-stats/character-stats.rules'
 
 export const roleClassSelect = {
   id: true,

@@ -1,13 +1,12 @@
 import type { CurrentUser } from '../../shared/types'
 
-import { getAbilityModifier } from '../calculation/stats.rules'
+import { getAbilityModifier } from '../character-stats/character-stats.rules'
 
 import { toCharacterProfileDto } from './character.mappers'
 
 import { characterRepository } from './character.repository'
 
 import type {
-  CreateCharacterInput,
   SessionCharacterCreationInput,
   UpdateCharacterInput,
 } from './character.schemas'
@@ -16,22 +15,59 @@ import {
   CharacterAlreadyExistsForSessionError,
   CharacterForbiddenError,
   CharacterNotFoundError,
-  CurrentFatigueExceedsLimitError,
   InvalidSessionStatusForCharacterCreationError,
   RoleClassNotAllowedError,
   RoleClassNotFoundError,
   SessionNotFoundError,
 } from './errors'
 
-function canManageAnyCharacter(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
+function isAdmin(currentUser: CurrentUser) {
+  return currentUser.role === 'ADMIN'
+}
+
+function isModerator(currentUser: CurrentUser) {
+  return currentUser.role === 'MODERATOR'
+}
+
+function canManageSession(
+  session: {
+    moderatorId: string
+  },
+  currentUser: CurrentUser,
+) {
+  if (isAdmin(currentUser)) {
+    return true
+  }
+
+  return isModerator(currentUser) && session.moderatorId === currentUser.id
 }
 
 function canAccessCharacter(
-  character: { userId: string },
+  character: {
+    userId: string
+    sessionParticipants: {
+      session: {
+        moderatorId: string
+      }
+    }[]
+  },
   currentUser: CurrentUser,
 ) {
-  return canManageAnyCharacter(currentUser) || character.userId === currentUser.id
+  if (isAdmin(currentUser)) {
+    return true
+  }
+
+  if (character.userId === currentUser.id) {
+    return true
+  }
+
+  if (!isModerator(currentUser)) {
+    return false
+  }
+
+  return character.sessionParticipants.some(
+    (participant) => participant.session.moderatorId === currentUser.id,
+  )
 }
 
 function canUseSessionForProfile(
@@ -42,14 +78,11 @@ function canUseSessionForProfile(
   },
   currentUser: CurrentUser,
 ) {
-  if (currentUser.role === 'ADMIN') {
+  if (isAdmin(currentUser)) {
     return true
   }
 
-  if (
-    currentUser.role === 'MODERATOR'
-    && session.moderatorId === currentUser.id
-  ) {
+  if (canManageSession(session, currentUser)) {
     return true
   }
 
@@ -156,9 +189,20 @@ async function assertRoleClassAllowedForCharacterSessions(
 
 export const characterService = {
   async getCharacters(currentUser: CurrentUser) {
-    const characters = canManageAnyCharacter(currentUser)
-      ? await characterRepository.findAll()
-      : await characterRepository.findAllByUserId(currentUser.id)
+    if (isAdmin(currentUser)) {
+      const characters = await characterRepository.findAll()
+      return characters.map(toCharacterProfileDto)
+    }
+
+    if (isModerator(currentUser)) {
+      const characters = await characterRepository.findAllForModerator(
+        currentUser.id,
+      )
+
+      return characters.map(toCharacterProfileDto)
+    }
+
+    const characters = await characterRepository.findAllByUserId(currentUser.id)
 
     return characters.map(toCharacterProfileDto)
   },
@@ -188,7 +232,7 @@ export const characterService = {
       throw new CharacterForbiddenError()
     }
 
-    const canSeeHiddenItems = canManageAnyCharacter(currentUser)
+    const canSeeHiddenItems = canManageSession(session, currentUser)
 
     return {
       session: {
@@ -223,16 +267,6 @@ export const characterService = {
         ],
       },
     }
-  },
-
-  async createCharacter(data: CreateCharacterInput, currentUser: CurrentUser) {
-    const { sessionId, ...characterData } = data
-
-    return this.createCharacterForSession(
-      sessionId,
-      characterData,
-      currentUser,
-    )
   },
 
   async createCharacterForSession(
@@ -312,16 +346,6 @@ export const characterService = {
     const nextFatigueLimit = data.baseStats?.constitution !== undefined
       ? calculateFatigueLimitFromConstitution(nextConstitution)
       : character.fatigueLimit
-
-    const nextCurrentFatigue =
-      data.currentFatigue ?? character.currentFatigue
-
-    if (nextCurrentFatigue > nextFatigueLimit) {
-      throw new CurrentFatigueExceedsLimitError(
-        nextCurrentFatigue,
-        nextFatigueLimit,
-      )
-    }
 
     const updatedCharacter = await characterRepository.update(id, {
       ...data,

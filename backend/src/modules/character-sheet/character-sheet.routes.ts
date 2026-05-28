@@ -3,9 +3,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { authMiddleware } from '../../middlewares/auth.middleware'
 
 import { characterAccessPreHandler } from '../characters/character-access.prehandler'
-import { CharacterNotFoundError } from '../characters/errors'
 import { characterParamsSchema } from '../characters/character.schemas'
 
+import { CharacterSheetNotFoundError } from './character-sheet.errors'
 import { CharacterSheetService } from './character-sheet.service'
 
 type CharacterSheetRouteDeps = {
@@ -41,9 +41,13 @@ export async function characterSheetRoutes(
       }
 
       try {
-        return await characterSheetService.getCharacterSheet(parsed.data.id)
+        const sheet = await characterSheetService.getCharacterSheet(
+          parsed.data.id,
+        )
+
+        return reply.send(sheet)
       } catch (error: unknown) {
-        if (error instanceof CharacterNotFoundError) {
+        if (error instanceof CharacterSheetNotFoundError) {
           return reply.status(404).send({
             message: error.message,
           })

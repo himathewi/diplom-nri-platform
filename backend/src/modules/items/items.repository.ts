@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client'
-
 import { prisma } from '../../lib/prisma'
 
 import type {
@@ -67,20 +65,6 @@ const sessionParticipantInclude = {
   },
 } as const
 
-function toNullableJsonInput(
-  value: unknown | null | undefined,
-): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
-  if (value === undefined) {
-    return undefined
-  }
-
-  if (value === null) {
-    return Prisma.DbNull
-  }
-
-  return value as Prisma.InputJsonValue
-}
-
 export const itemsRepository = {
   findAllCatalogItems() {
     return prisma.item.findMany({
@@ -127,7 +111,6 @@ export const itemsRepository = {
         name: data.name,
         type: data.type,
         description: data.description ?? null,
-        attributeEffects: toNullableJsonInput(data.attributeEffects),
         isPublic: data.isPublic,
         isActive: data.isActive,
       },
@@ -148,9 +131,6 @@ export const itemsRepository = {
         }),
         ...(data.description !== undefined && {
           description: data.description,
-        }),
-        ...(data.attributeEffects !== undefined && {
-          attributeEffects: toNullableJsonInput(data.attributeEffects),
         }),
         ...(data.isPublic !== undefined && {
           isPublic: data.isPublic,
@@ -275,6 +255,42 @@ export const itemsRepository = {
       include: participantItemInclude,
       orderBy: {
         createdAt: 'asc',
+      },
+    })
+  },
+
+  findParticipantItemsByItemIds(
+    sessionParticipantId: string,
+    itemIds: string[],
+  ) {
+    return prisma.participantItem.findMany({
+      where: {
+        sessionParticipantId,
+        itemId: {
+          in: itemIds,
+        },
+      },
+      include: participantItemInclude,
+      orderBy: {
+        createdAt: 'asc',
+      },
+    })
+  },
+
+  findParticipantItemQuantitiesByItemIds(
+    sessionParticipantId: string,
+    itemIds: string[],
+  ) {
+    return prisma.participantItem.groupBy({
+      by: ['itemId'],
+      where: {
+        sessionParticipantId,
+        itemId: {
+          in: itemIds,
+        },
+      },
+      _sum: {
+        quantity: true,
       },
     })
   },

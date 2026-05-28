@@ -7,7 +7,6 @@ import {
 
 import {
   characterParamsSchema,
-  createCharacterSchema,
   sessionCharacterCreationSchema,
   sessionCharacterParamsSchema,
   updateCharacterSchema,
@@ -133,38 +132,6 @@ export async function characterRoutes(app: FastifyInstance) {
       }
 
       return characterService.getCharacterById(paramsParsed.data.id, currentUser)
-    },
-  )
-
-  app.post(
-    '/characters',
-    {
-      preHandler: authMiddleware,
-    },
-    async (request, reply) => {
-      const bodyParsed = createCharacterSchema.safeParse(request.body)
-
-      if (!bodyParsed.success) {
-        return reply.status(400).send({
-          message: 'Validation error',
-          errors: bodyParsed.error.flatten(),
-        })
-      }
-
-      const currentUser = getCurrentUser(request)
-
-      if (!currentUser) {
-        return reply.status(401).send({
-          message: 'Unauthorized',
-        })
-      }
-
-      const character = await characterService.createCharacter(
-        bodyParsed.data,
-        currentUser,
-      )
-
-      return reply.status(201).send(character)
     },
   )
 
