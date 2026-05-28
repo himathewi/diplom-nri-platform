@@ -17,15 +17,10 @@ import { teamMetricsRoutes } from './modules/team-metrics/team-metrics.routes'
 import { reportsRoutes } from './modules/reports/reports.routes'
 
 import { characterRoutes } from "./modules/characters/character.routes";
-import { characterHpRoutes } from "./modules/character-hp/character-hp.routes";
 import { characterStatsRoutes } from "./modules/character-stats/character-stats.routes";
-import { characterAttacksRoutes } from "./modules/character-attacks/character-attacks.routes";
-import { characterSpellsRoutes } from "./modules/character-spells/character-spells.routes";
 import { characterInventoryRoutes } from "./modules/character-inventory/character-inventory.routes";
 
 import { characterRepository } from "./modules/characters/character.repository";
-import { characterAttacksRepository } from "./modules/character-attacks/character-attacks.repository";
-import { characterSpellsRepository } from "./modules/character-spells/character-spells.repository";
 import { characterStatsRepository as characterStatsDbRepository } from "./modules/character-stats/character-stats.repository";
 import { characterInventoryRepository as characterInventoryDbRepository } from "./modules/character-inventory/character-inventory.repository";
 
@@ -105,16 +100,6 @@ export async function buildApp() {
       characterStatsDbRepository.findStatsByCharacterId(characterId)
   };
 
-  const characterAttackRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterAttacksRepository.findAttacksByCharacterId(characterId)
-  };
-
-  const characterSpellRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterSpellsRepository.findSpellsByCharacterId(characterId)
-  };
-
   const characterItemRepository = {
     findByCharacterId: (characterId: string) =>
       characterInventoryDbRepository.findByCharacterId(characterId)
@@ -123,8 +108,6 @@ export async function buildApp() {
   const characterSheetService = new CharacterSheetService(
     characterForSheetRepository,
     characterStatsRepository,
-    characterAttackRepository,
-    characterSpellRepository,
     characterItemRepository
   );
 
@@ -142,10 +125,7 @@ export async function buildApp() {
     characterSheetService
   });
 
-  await app.register(characterHpRoutes);
   await app.register(characterStatsRoutes);
-  await app.register(characterAttacksRoutes);
-  await app.register(characterSpellsRoutes);
   await app.register(characterInventoryRoutes);
   await app.register(characterRoutes);
 

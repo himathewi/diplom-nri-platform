@@ -3,7 +3,7 @@ import {
   rollAbilityScores,
   type AbilityScores,
 } from '../calculation/stats.rules'
-import { characterHpRepository } from '../character-hp/character-hp.repository'
+import { characterRepository } from '../characters/character.repository'
 import { characterStatsRepository } from './character-stats.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
@@ -58,16 +58,13 @@ export const characterStatsService = {
   // 5. Если currentHp стал выше нового effective maxHp — обрезаем currentHp.
   // 6. Возвращаем обновлённые stats.
   async updateCharacterStats(id: string, stats: AbilityScores) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+    const character = await characterRepository.findHealthStateById(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
     }
 
-    const previousBaseMaxHp = calculateMaxHp({
-      ...character,
-      hpIncreases: character.hpIncreases ?? [],
-    })
+    const previousBaseMaxHp = calculateMaxHp(character)
 
     const previousMaxHp = await calculateCharacterEffectiveMaxHp(
       id,
@@ -77,7 +74,6 @@ export const characterStatsService = {
     const nextBaseMaxHp = calculateMaxHp({
       ...character,
       stats,
-      hpIncreases: character.hpIncreases ?? [],
     })
 
     const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
@@ -112,7 +108,7 @@ export const characterStatsService = {
   // фронт НЕ кидает кубы сам.
   // Фронт только вызывает endpoint, а сервер возвращает результат.
   async rollCharacterStats(id: string) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+    const character = await characterRepository.findHealthStateById(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -120,10 +116,7 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const previousBaseMaxHp = calculateMaxHp({
-      ...character,
-      hpIncreases: character.hpIncreases ?? [],
-    })
+    const previousBaseMaxHp = calculateMaxHp(character)
 
     const previousMaxHp = await calculateCharacterEffectiveMaxHp(
       id,
@@ -133,7 +126,6 @@ export const characterStatsService = {
     const nextBaseMaxHp = calculateMaxHp({
       ...character,
       stats: result.stats,
-      hpIncreases: character.hpIncreases ?? [],
     })
 
     const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)

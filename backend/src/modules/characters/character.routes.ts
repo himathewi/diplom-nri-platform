@@ -12,15 +12,6 @@ import {
 } from '../../middlewares/auth.middleware'
 
 export async function characterRoutes(app: FastifyInstance) {
-  // =========================================================
-  // Characters
-  // =========================================================
-
-  // Получить список базовых профилей персонажей.
-  //
-  // Важно:
-  // GET /characters не возвращает полный character sheet.
-  // Полный лист должен идти через GET /characters/:id/sheet.
   app.get('/characters', {
     preHandler: authMiddleware,
   }, async (request, reply) => {
@@ -33,11 +24,6 @@ export async function characterRoutes(app: FastifyInstance) {
     return characterService.getCharacters(currentUser)
   })
 
-  // Получить базовый профиль персонажа по ID.
-  //
-  // Важно:
-  // GET /characters/:id не возвращает stats / attacks / spells / items.
-  // Для полного листа использовать GET /characters/:id/sheet.
   app.get('/characters/:id', {
     preHandler: authMiddleware,
   }, async (request, reply) => {
@@ -74,10 +60,6 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-  // Создать персонажа.
-  //
-  // Создание персонажа возвращает базовый профиль.
-  // Stats создаются отдельно внутри repository дефолтными значениями.
   app.post('/characters', {
     preHandler: authMiddleware,
   }, async (request, reply) => {
@@ -96,23 +78,14 @@ export async function characterRoutes(app: FastifyInstance) {
       return reply.status(401).send({ message: 'Unauthorized' })
     }
 
-    try {
-      const character = await characterService.createCharacter(
-        bodyParsed.data,
-        currentUser,
-      )
+    const character = await characterService.createCharacter(
+      bodyParsed.data,
+      currentUser,
+    )
 
-      return reply.status(201).send(character)
-    } catch (error) {
-      throw error
-    }
+    return reply.status(201).send(character)
   })
 
-  // Обновить только базовые поля персонажа.
-  //
-  // Важно:
-  // HP / death saves / hit dice / inspiration / stats / attacks / spells /
-  // inventory здесь не меняются.
   app.patch('/characters/:id', {
     preHandler: authMiddleware,
   }, async (request, reply) => {
@@ -158,7 +131,6 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-  // Удалить персонажа.
   app.delete('/characters/:id', {
     preHandler: authMiddleware,
   }, async (request, reply) => {

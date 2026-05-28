@@ -1,5 +1,3 @@
-import type { Attack } from './attacks'
-import type { Spell, SpellSlot } from './spells'
 import type { CharacterItem, EquipmentSlot } from './items'
 
 export type Stats = {
@@ -11,8 +9,6 @@ export type Stats = {
   charisma: number
 }
 
-export type SpellcastingAbility = keyof Stats
-
 export type DerivedStats = {
   maxHp: number
   armorClass: number
@@ -23,17 +19,6 @@ export type Skill = {
   name: string
   attribute: keyof Stats
   proficient: boolean
-}
-
-export type DeathSaves = {
-  successes: number
-  failures: number
-}
-
-export type HitDice = {
-  total: number
-  used: number
-  dice: string
 }
 
 export type EquippedItems = Record<EquipmentSlot, string | null>
@@ -56,20 +41,14 @@ export type Character = {
   temporaryHp: number
   speed: number
   inspiration: boolean
-  spellcastingAbility: SpellcastingAbility | null
 
   baseStats?: Stats
 
   skills?: Skill[]
-  attacks?: Attack[]
-  spells?: Spell[]
-  spellSlots?: SpellSlot[]
 
   currentStats?: Stats
   derivedStats?: DerivedStats
   savingThrowProficiencies?: (keyof Stats)[]
-  deathSaves?: DeathSaves
-  hitDice?: HitDice
 
   inventory?: CharacterItem[]
   equippedItems?: EquippedItems
@@ -99,5 +78,3 @@ export const standardSkills: Skill[] = [
   { name: 'Убеждение', attribute: 'charisma', proficient: false },
 ]
 
-export type { Attack, NewAttack } from './attacks'
-export type { NewSpell, Spell, SpellSlot } from './spells'

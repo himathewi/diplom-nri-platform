@@ -17,7 +17,6 @@ import type {
   EquipItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
-import { characterHpRepository } from '../character-hp/character-hp.repository'
 import { calculateMaxHp } from '../calculation/hp.rules'
 import {
   calculateEffectiveMaxHp,
@@ -25,7 +24,7 @@ import {
 } from '../calculation/item-effects.rules'
 
 async function clampCurrentHpToEffectiveMaxHp(characterId: string) {
-  const character = await characterHpRepository.findByIdWithHpData(characterId)
+  const character = await characterRepository.findHealthStateById(characterId)
 
   if (!character) {
     throw new CharacterNotFoundError(characterId)
@@ -49,7 +48,7 @@ async function clampCurrentHpToEffectiveMaxHp(characterId: string) {
     return
   }
 
-  await characterHpRepository.updateHpState(characterId, {
+  await characterRepository.updateHealthState(characterId, {
     currentHp: maxHp,
     temporaryHp: character.temporaryHp,
   })

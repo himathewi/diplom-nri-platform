@@ -13,7 +13,6 @@ export type CreateCharacterInput = {
   background?: string | null
   avatarUrl?: string | null
   speed?: number
-  spellcastingAbility?: keyof Stats | null
 }
 
 export type UpdateCharacterInput = {
@@ -26,7 +25,6 @@ export type UpdateCharacterInput = {
   background?: string | null
   avatarUrl?: string | null
   speed?: number
-  spellcastingAbility?: keyof Stats | null
 }
 
 function mapCreateCharacterPayloadToBackend(data: CreateCharacterInput) {
@@ -41,7 +39,6 @@ function mapCreateCharacterPayloadToBackend(data: CreateCharacterInput) {
     background: data.background,
     avatarUrl: data.avatarUrl,
     speed: data.speed,
-    spellcastingAbility: data.spellcastingAbility,
   })
 }
 
@@ -55,7 +52,6 @@ function mapUpdateCharacterPayloadToBackend(data: UpdateCharacterInput) {
     background: data.background,
     avatarUrl: data.avatarUrl,
     speed: data.speed,
-    spellcastingAbility: data.spellcastingAbility,
   })
 }
 
@@ -90,11 +86,3 @@ export function deleteCharacter(id: string): Promise<void> {
   return httpClient.delete<void>(`/characters/${id}`)
 }
 
-export async function updateSpellcastingAbility(
-  characterId: string,
-  ability: keyof Stats | null
-): Promise<Character> {
-  return updateCharacter(characterId, {
-    spellcastingAbility: ability,
-  })
-}

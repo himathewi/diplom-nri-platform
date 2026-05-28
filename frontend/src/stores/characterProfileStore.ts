@@ -52,7 +52,6 @@ const mergeCharacterIntoList = (
 
 const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
   ...sheet.character,
-  spellcastingAbility: sheet.magic.spellcastingAbility,
   baseStats: sheet.stats.base,
 } as Character)
 

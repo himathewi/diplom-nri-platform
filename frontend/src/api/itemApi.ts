@@ -10,7 +10,6 @@ import { httpClient } from './httpClient'
  * - slot legacy/fallback
  * - allowedSlots
  * - effects
- * - weaponConfig
  */
 export function getItemTemplates(): Promise<ItemTemplateResponse[]> {
   return httpClient.get<ItemTemplateResponse[]>('/items')

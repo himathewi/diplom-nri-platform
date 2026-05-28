@@ -1,16 +1,12 @@
 import { CharacterNotFoundError } from '../characters/errors'
-import { calculateHitDice, calculateMaxHp } from '../calculation/hp.rules'
+import { calculateMaxHp } from '../calculation/hp.rules'
 
 import { getAbilityModifiers } from '../calculation/stats.rules'
 
 import {
-  normalizeAbilityName,
-  normalizeSpellSlots,
   toAbilityScores,
-  toAttackDto,
   toCharacterItemDto,
   toCharacterProfileDto,
-  toSpellDto,
 } from './character-sheet.mappers'
 
 import {
@@ -23,18 +19,15 @@ import {
   calculateSkillBonuses,
 } from '../calculation/skills.rules'
 import { calculateFinalStats } from '../calculation/item-effects.rules'
-import { createGeneratedWeaponAttacks } from '../calculation/generated-attacks.rules'
 
 import { calculateSavingThrows } from '../calculation/saving-throws.rules'
 
 import type {
-  CharacterAttackRepository,
   CharacterEntity,
   CharacterItemRepository,
   CharacterRepository,
   CharacterStatsEntity,
   CharacterStatsRepository,
-  CharacterSpellRepository,
 } from './character-sheet.contracts'
 
 import type { CharacterSheetDto } from './character-sheet.types'
@@ -48,8 +41,6 @@ export class CharacterSheetService {
   constructor(
     private readonly characterRepository: CharacterRepository,
     private readonly characterStatsRepository: CharacterStatsRepository,
-    private readonly attackRepository: CharacterAttackRepository,
-    private readonly spellRepository: CharacterSpellRepository,
     private readonly itemRepository: CharacterItemRepository,
   ) {}
 
@@ -62,11 +53,7 @@ export class CharacterSheetService {
 
     const baseStatsEntity = await this.getStats(characterId)
 
-    const [attacks, spells, items] = await Promise.all([
-      this.attackRepository.findByCharacterId(characterId),
-      this.spellRepository.findByCharacterId(characterId),
-      this.itemRepository.findByCharacterId(characterId),
-    ])
+    const items = await this.itemRepository.findByCharacterId(characterId)
 
     const inventoryItems = items.map((item) => toCharacterItemDto(item))
     const equippedItems = inventoryItems.filter((item) => item.isEquipped)
@@ -91,36 +78,19 @@ export class CharacterSheetService {
       savingThrowStates: [],
     })
 
-    const hpIncreases = character.hpIncreases ?? []
-
     const characterForHpCalculation = {
       ...character,
       stats: baseStatsEntity,
-      hpIncreases,
     }
 
     const derived = calculateCharacterSheetDerived({
       level: character.level,
-      spellcastingAbility: character.spellcastingAbility,
       modifiers,
       maxHp: calculateMaxHp(characterForHpCalculation),
       passivePerception: calculatePassivePerception(skills),
       equippedItems,
     })
 
-    const hitDice = calculateHitDice(characterForHpCalculation)
-
-    const manualAttacks = attacks.map((attack) =>
-      toAttackDto(attack, modifiers, proficiencyBonus),
-    )
-
-    const generatedWeaponAttacks = createGeneratedWeaponAttacks({
-      characterId: character.id,
-      equippedItems,
-      modifiers,
-      proficiencyBonus,
-    })
-    
     return {
       character: toCharacterProfileDto(character),
 
@@ -132,29 +102,12 @@ export class CharacterSheetService {
 
       derived,
 
-      deathSaves: {
-        successes: character.deathSaveSuccesses,
-        failures: character.deathSaveFailures,
-      },
-
       skills,
       savingThrows,
-
-      attacks: [...manualAttacks, ...generatedWeaponAttacks],
-
-      magic: {
-        spells: spells.map((spell) => toSpellDto(spell)),
-        spellSlots: normalizeSpellSlots(character.spellSlots),
-        spellcastingAbility: normalizeAbilityName(character.spellcastingAbility),
-      },
 
       inventory: {
         items: inventoryItems,
         equippedItems,
-      },
-      progression: {
-        hitDice,
-        hpIncreases,
       },
     }
   }

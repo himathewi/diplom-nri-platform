@@ -3,7 +3,6 @@ import type {
   EquipmentSlot,
   ItemEffect,
   ItemType,
-  WeaponConfig,
 } from '../types/items'
 import { httpClient } from './httpClient'
 import { removeUndefinedValues } from './apiPayload'
@@ -26,7 +25,6 @@ export type CreateItemInput = {
   type?: ItemType | string | null
   allowedSlots?: EquipmentSlot[]
   effects?: ItemEffect[]
-  weaponConfig?: WeaponConfig | null
 }
 
 /**

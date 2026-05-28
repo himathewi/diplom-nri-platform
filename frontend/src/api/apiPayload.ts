@@ -5,7 +5,6 @@
  * как осознанную очистку nullable-поля:
  * description: null
  * avatarUrl: null
- * spellcastingAbility: null
  */
 export function removeUndefinedValues<T extends Record<string, unknown>>(data: T) {
   return Object.fromEntries(

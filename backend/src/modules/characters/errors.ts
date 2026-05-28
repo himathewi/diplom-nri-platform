@@ -19,45 +19,9 @@ export class CharacterForbiddenError extends ForbiddenError {
 }
 
 // Ошибка: атака не найдена
-export class AttackNotFoundError extends NotFoundError {
-  constructor(id?: string) {
-    super(
-      id ? `Attack with id "${id}" not found` : 'Attack not found',
-      id ? { attackId: id } : undefined,
-    )
-  }
-}
-
 // Ошибка: заклинание не найдено
-export class SpellNotFoundError extends NotFoundError {
-  constructor(id?: string) {
-    super(
-      id ? `Spell with id "${id}" not found` : 'Spell not found',
-      id ? { spellId: id } : undefined,
-    )
-  }
-}
-
 // Ошибка: атака не принадлежит персонажу
-export class AttackOwnershipError extends ForbiddenError {
-  constructor(characterId?: string, attackId?: string) {
-    super('Attack does not belong to this character', {
-      characterId,
-      attackId,
-    })
-  }
-}
-
 // Ошибка: заклинание не принадлежит персонажу
-export class SpellOwnershipError extends ForbiddenError {
-  constructor(characterId?: string, spellId?: string) {
-    super('Spell does not belong to this character', {
-      characterId,
-      spellId,
-    })
-  }
-}
-
 // Ошибка: предмет персонажа не найден
 export class ItemNotFoundError extends NotFoundError {
   constructor(id?: string) {

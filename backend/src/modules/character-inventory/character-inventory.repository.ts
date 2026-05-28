@@ -114,7 +114,6 @@ export const characterInventoryRepository = {
 
         effects: toNullableJsonInput(data.effects),
 
-        weaponConfig: toNullableJsonInput(data.weaponConfig),
       },
       include: characterItemInclude,
     })
@@ -150,9 +149,6 @@ export const characterInventoryRepository = {
           effects: toNullableJsonInput(data.effects),
         }),
 
-        ...(data.weaponConfig !== undefined && {
-          weaponConfig: toNullableJsonInput(data.weaponConfig),
-        }),
       },
       include: characterItemInclude,
     })

@@ -1,6 +1,4 @@
 import type { Stats } from './characters'
-import type { Attack } from './attacks'
-import type { Spell, SpellSlot } from './spells'
 import type { CharacterItemForSheet } from './items'
 
 export type AbilityName = keyof Stats
@@ -42,28 +40,6 @@ export type SavingThrowBonus = {
   bonus: number
 }
 
-export type CharacterSheetDeathSaves = {
-  successes: number
-  failures: number
-}
-
-export type CharacterSheetHitDice = {
-  total: number
-  used: number
-  dice: string
-}
-
-export type HpIncrease = {
-  id: string
-  characterId: string
-  level: number
-  mode: 'fixed' | 'roll' | string
-  value: number
-  dice: string
-  rolledValue: number | null
-  createdAt: string
-}
-
 export type CharacterSheet = {
   character: CharacterProfile
 
@@ -79,30 +55,13 @@ export type CharacterSheet = {
     initiative: number
     passivePerception: number
     proficiencyBonus: number
-    spellAttackBonus: number | null
-    spellSaveDc: number | null
   }
-
-  deathSaves: CharacterSheetDeathSaves
 
   skills: SkillBonus[]
   savingThrows: SavingThrowBonus[]
 
-  attacks: Attack[]
-
-  magic: {
-    spells: Spell[]
-    spellSlots: SpellSlot[]
-    spellcastingAbility: AbilityName | null
-  }
-
   inventory: {
     items: CharacterItemForSheet[]
     equippedItems: CharacterItemForSheet[]
-  }
-
-  progression: {
-    hitDice: CharacterSheetHitDice
-    hpIncreases: HpIncrease[]
   }
 }

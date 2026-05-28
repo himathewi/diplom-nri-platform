@@ -4,20 +4,6 @@ import type {
   UpdateCharacterInput,
 } from './character.schemas'
 
-// =========================================================
-// Select / include-конфиги
-// =========================================================
-
-// Базовый профиль персонажа.
-// Используется для:
-// GET /characters
-// GET /characters/:id
-// POST /characters
-// PATCH /characters/:id
-//
-// Важно:
-// здесь подтягиваем только base stats для карточек/форм.
-// Полный лист должен идти через GET /characters/:id/sheet.
 const characterProfileSelect = {
   id: true,
   userId: true,
@@ -36,7 +22,6 @@ const characterProfileSelect = {
   temporaryHp: true,
   speed: true,
   inspiration: true,
-  spellcastingAbility: true,
 
   stats: {
     select: {
@@ -53,49 +38,23 @@ const characterProfileSelect = {
   updatedAt: true,
 } as const
 
-// Расширенный include для сборки CharacterSheet.
-// Используется только там, где нужен полный sheet.
 const characterSheetInclude = {
   stats: true,
-  attacks: true,
-  spells: true,
   items: {
     include: {
       itemTemplate: true,
     },
   },
-  hpIncreases: {
-    orderBy: {
-      level: 'asc',
-    },
-  },
 } as const
-
-// =========================================================
-// Внутренние типы repository
-// =========================================================
 
 type CreateCharacterRepositoryInput = CreateCharacterInput & {
   userId: string
-
   currentHp: number
   temporaryHp: number
   inspiration: boolean
-
-  deathSaveSuccesses: number
-  deathSaveFailures: number
-
-  hitDiceTotal: number
-  hitDiceUsed: number
-  hitDiceDice: string
 }
 
 export const characterRepository = {
-  // =========================================================
-  // Characters
-  // =========================================================
-
-  // Получить список базовых профилей персонажей.
   findAll() {
     return prisma.character.findMany({
       orderBy: {
@@ -117,7 +76,6 @@ export const characterRepository = {
     })
   },
 
-  // Получить базовый профиль персонажа по ID.
   findById(id: string) {
     return prisma.character.findUnique({
       where: { id },
@@ -135,8 +93,6 @@ export const characterRepository = {
     })
   },
 
-  // Получить персонажа с полным набором связанных сущностей.
-  // Это НЕ готовый sheet. Это только данные для CharacterSheetService.
   findByIdForSheet(id: string) {
     return prisma.character.findUnique({
       where: { id },
@@ -144,13 +100,6 @@ export const characterRepository = {
     })
   },
 
-  // Создать нового персонажа.
-  //
-  // Важно:
-  // - поля spellcastingAbility / death saves / hit dice / spellSlots
-  //   записываются в Character, а не в CharacterStats;
-  // - stats создаются отдельно как relation create;
-  // - наружу возвращаем только базовый профиль.
   create(data: CreateCharacterRepositoryInput) {
     return prisma.character.create({
       data: {
@@ -174,17 +123,6 @@ export const characterRepository = {
         speed: data.speed ?? 30,
         inspiration: data.inspiration,
 
-        spellcastingAbility: data.spellcastingAbility ?? null,
-
-        deathSaveSuccesses: data.deathSaveSuccesses,
-        deathSaveFailures: data.deathSaveFailures,
-
-        hitDiceTotal: data.hitDiceTotal,
-        hitDiceUsed: data.hitDiceUsed,
-        hitDiceDice: data.hitDiceDice,
-
-        spellSlots: [],
-
         stats: {
           create: {
             strength: data.baseStats?.strength ?? 10,
@@ -200,10 +138,6 @@ export const characterRepository = {
     })
   },
 
-  // Обновить только базовые поля персонажа.
-  //
-  // HP / death saves / hit dice / inspiration / stats / attacks / spells /
-  // inventory здесь не меняются. Для них есть отдельные modules/actions.
   update(id: string, data: UpdateCharacterInput) {
     return prisma.character.update({
       where: { id },
@@ -230,16 +164,42 @@ export const characterRepository = {
         }),
 
         ...(data.speed !== undefined && { speed: data.speed }),
-
-        ...(data.spellcastingAbility !== undefined && {
-          spellcastingAbility: data.spellcastingAbility,
-        }),
       },
       select: characterProfileSelect,
     })
   },
 
-  // Удалить персонажа.
+  findHealthStateById(id: string) {
+    return prisma.character.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        level: true,
+        currentHp: true,
+        temporaryHp: true,
+        stats: {
+          select: {
+            constitution: true,
+          },
+        },
+      },
+    })
+  },
+
+  updateHealthState(
+    id: string,
+    data: {
+      currentHp: number
+      temporaryHp: number
+    },
+  ) {
+    return prisma.character.update({
+      where: { id },
+      data,
+      select: characterProfileSelect,
+    })
+  },
+
   delete(id: string) {
     return prisma.character.delete({
       where: { id },

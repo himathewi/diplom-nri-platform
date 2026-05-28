@@ -1,30 +1,18 @@
-// =========================
-// Prisma client генерация
-// =========================
 generator client {
   provider = "prisma-client-js"
 }
 
-// =========================
-// Подключение к базе данных
-// =========================
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// =========================
-// РОЛИ ПОЛЬЗОВАТЕЛЕЙ
-// =========================
 enum UserRole {
   ADMIN
   MODERATOR
   PARTICIPANT
 }
 
-// =========================
-// НАПРАВЛЕНИЯ СЦЕНАРИЕВ НРИ
-// =========================
 enum ScenarioDomain {
   CROP_PRODUCTION
   GREENHOUSE
@@ -35,18 +23,12 @@ enum ScenarioDomain {
   TEAMBUILDING
 }
 
-// =========================
-// СТАТУСЫ ИГРОВОЙ СЕССИИ
-// =========================
 enum SessionStatus {
   PLANNED
   ACTIVE
   FINISHED
 }
 
-// =========================
-// ТИПЫ СОБЫТИЙ СЦЕНАРИЯ
-// =========================
 enum EventType {
   PRODUCTION_PROBLEM
   WEATHER_CHANGE
@@ -56,13 +38,9 @@ enum EventType {
   INFORMATION_UPDATE
 }
 
-// =========================
-// ОСНОВНАЯ СУЩНОСТЬ ПЕРСОНАЖА
-// =========================
 model Character {
-  id String @id @default(uuid()) // Уникальный ID персонажа
+  id String @id @default(uuid())
 
-  // --- БАЗОВАЯ ИНФОРМАЦИЯ ---
   name      String
   race      String
   className String
@@ -73,48 +51,20 @@ model Character {
   background  String?
   avatarUrl   String?
 
-  // --- HP ---
-  currentHp   Int @default(0) // текущее здоровье
-  temporaryHp Int @default(0) // временные хп
+  currentHp   Int @default(0)
+  temporaryHp Int @default(0)
 
-  // --- ОБЩИЕ ПОЛЯ ---
   speed       Int     @default(30)
   inspiration Boolean @default(false)
 
-  // --- МАГИЯ ---
-  spellcastingAbility String?
-
-  // --- DEATH SAVES ---
-  deathSaveSuccesses Int @default(0)
-  deathSaveFailures  Int @default(0)
-
-  // --- HIT DICE ---
-  hitDiceTotal Int? // общее количество костей (обычно = level)
-  hitDiceUsed  Int     @default(0) // сколько уже потрачено
-  hitDiceDice  String? // тип кости (например "1d8")
-
-  /// Для первой версии удобно хранить spell slots как Json
-  /// пример: [{ "level": 1, "total": 2, "used": 1 }]
-  spellSlots Json?
-
-  // --- СВЯЗЬ С ПОЛЬЗОВАТЕЛЕМ ---
-  // Необязательная связь, чтобы не ломать старую логику персонажей
   userId String?
 
-  // --- СИСТЕМНЫЕ ПОЛЯ ---
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // --- СВЯЗИ СТАРОЙ ЛОГИКИ ---
-  stats   CharacterStats?
-  attacks CharacterAttack[]
-  spells  CharacterSpell[]
-  items   CharacterItem[]
+  stats CharacterStats?
+  items CharacterItem[]
 
-  // 🔥 НОВОЕ: история прироста HP
-  hpIncreases CharacterHpIncrease[]
-
-  // --- СВЯЗИ НОВОЙ ЛОГИКИ НРИ ---
   user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   sessionParticipants SessionParticipant[]
   decisions           Decision[]
@@ -122,14 +72,10 @@ model Character {
   @@index([userId])
 }
 
-// =========================
-// СТАТЫ ПЕРСОНАЖА
-// =========================
 model CharacterStats {
   id          String @id @default(uuid())
   characterId String @unique
 
-  // Базовые характеристики
   strength     Int
   dexterity    Int
   constitution Int
@@ -137,70 +83,9 @@ model CharacterStats {
   wisdom       Int
   charisma     Int
 
-  // Связь с персонажем
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
 
-// =========================
-// АТАКИ ПЕРСОНАЖА
-// =========================
-model CharacterAttack {
-  id          String @id @default(uuid())
-  characterId String
-
-  name       String
-  attackType String?
-  ability    String?
-  proficient Boolean @default(false)
-
-  damageDice  String?
-  damageBonus Int?
-  damageType  String?
-  notes       String?
-
-  /// manual | item (откуда появилась атака)
-  source String?
-
-  /// если атака создана предметом
-  itemId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
-}
-
-// =========================
-// ЗАКЛИНАНИЯ ПЕРСОНАЖА
-// =========================
-model CharacterSpell {
-  id          String @id @default(uuid())
-  characterId String
-
-  name          String
-  level         Int
-  school        String?
-  castingTime   String?
-  range         String?
-  components    String?
-  duration      String?
-  concentration Boolean @default(false)
-  ritual        Boolean @default(false)
-  description   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
-}
-
-// =========================
-// ШАБЛОНЫ ПРЕДМЕТОВ (СПРАВОЧНИК)
-// =========================
 model ItemTemplate {
   id          String  @id @default(uuid())
   name        String
@@ -208,24 +93,8 @@ model ItemTemplate {
   slot        String?
   description String?
 
-  /// Куда предмет можно экипировать.
-  /// Пример: ["mainHand", "offHand"]
   allowedSlots Json?
-
-  /// Эффекты предмета.
-  /// Пример: [{ "type": "statBonus", "stat": "strength", "value": 2 }]
-  effects Json?
-
-  /// Конфиг оружия для generated attacks.
-  /// Пример:
-  /// {
-  ///   "attackType": "melee",
-  ///   "ability": "strength",
-  ///   "damageDice": "1d8",
-  ///   "damageBonus": 0,
-  ///   "damageType": "slashing"
-  /// }
-  weaponConfig Json?
+  effects      Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -233,49 +102,22 @@ model ItemTemplate {
   characterItems CharacterItem[]
 }
 
-// =========================
-// ПРЕДМЕТЫ У ПЕРСОНАЖА
-// =========================
 model CharacterItem {
   id             String  @id @default(uuid())
   characterId    String
   itemTemplateId String?
 
-  /// Снапшот имени.
-  /// Для шаблонного предмета может копировать ItemTemplate.name.
-  /// Для кастомного предмета является основным названием.
   nameSnapshot String
+  quantity     Int @default(1)
 
-  quantity Int @default(1)
-
-  /// Факт экипировки.
-  /// Саму экипировку делаем только через отдельный equip endpoint.
-  isEquipped Boolean @default(false)
-
-  /// Текущий слот, куда предмет экипирован.
-  /// Пока НЕ переименовываем в equippedSlot, чтобы не смешивать задачи.
+  isEquipped  Boolean @default(false)
   equippedSlot String?
 
-  /// Обычная текстовая заметка игрока.
-  /// Больше не используем как JSON-контейнер игровых правил.
   notes String?
 
-  /// Кастомный тип конкретного предмета.
-  /// Если null — берём type из ItemTemplate.
-  type String?
-
-  /// Кастомные допустимые слоты конкретного предмета.
-  /// Если null — берём allowedSlots из ItemTemplate.
-  /// Пример: ["mainHand", "offHand"]
+  type         String?
   allowedSlots Json?
-
-  /// Кастомные эффекты конкретного предмета.
-  /// Если null — берём effects из ItemTemplate.
-  effects Json?
-
-  /// Кастомный weaponConfig конкретного предмета.
-  /// Если null — берём weaponConfig из ItemTemplate.
-  weaponConfig Json?
+  effects      Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -288,38 +130,6 @@ model CharacterItem {
   @@unique([characterId, equippedSlot])
 }
 
-// =========================
-// 🔥 НОВАЯ ТАБЛИЦА: ИСТОРИЯ HP
-// =========================
-model CharacterHpIncrease {
-  id String @id @default(uuid())
-
-  characterId String
-  level       Int // уровень, на котором был прирост
-
-  /// fixed | roll
-  mode String
-
-  /// фактическая прибавка HP (например 5 или 7)
-  value Int
-
-  /// тип кости (например "1d8")
-  dice String
-
-  /// если был бросок — сохраняем результат
-  rolledValue Int?
-
-  createdAt DateTime @default(now())
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
-  @@unique([characterId, level])
-}
-
-// =========================
-// ПОЛЬЗОВАТЕЛИ СИСТЕМЫ
-// =========================
 model User {
   id       String   @id @default(uuid())
   email    String   @unique
@@ -337,9 +147,6 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// КОМАНДЫ УЧАСТНИКОВ
-// =========================
 model Team {
   id          String  @id @default(uuid())
   name        String
@@ -353,9 +160,6 @@ model Team {
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// УЧАСТНИКИ КОМАНДЫ
-// =========================
 model TeamMember {
   id         String  @id @default(uuid())
   teamId     String
@@ -372,9 +176,6 @@ model TeamMember {
   @@index([userId])
 }
 
-// =========================
-// СЦЕНАРИИ НАСТОЛЬНО-РОЛЕВЫХ ИГР
-// =========================
 model Scenario {
   id          String         @id @default(uuid())
   title       String
@@ -395,9 +196,6 @@ model Scenario {
   @@index([createdById])
 }
 
-// =========================
-// ЗАДАЧИ СЦЕНАРИЯ
-// =========================
 model ScenarioTask {
   id             String  @id @default(uuid())
   scenarioId     String
@@ -413,9 +211,6 @@ model ScenarioTask {
   @@index([scenarioId])
 }
 
-// =========================
-// ИГРОВЫЕ СЕССИИ
-// =========================
 model GameSession {
   id          String        @id @default(uuid())
   scenarioId  String
@@ -435,17 +230,14 @@ model GameSession {
 
   startedAt  DateTime?
   finishedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([scenarioId])
   @@index([teamId])
   @@index([moderatorId])
 }
 
-// =========================
-// УЧАСТНИКИ ИГРОВОЙ СЕССИИ
-// =========================
 model SessionParticipant {
   id          String @id @default(uuid())
   sessionId   String
@@ -461,9 +253,6 @@ model SessionParticipant {
   @@index([characterId])
 }
 
-// =========================
-// СОБЫТИЯ МОДЕРАТОРА ВНУТРИ СЕССИИ
-// =========================
 model SessionEvent {
   id          String    @id @default(uuid())
   sessionId   String
@@ -480,9 +269,6 @@ model SessionEvent {
   @@index([sessionId])
 }
 
-// =========================
-// РЕШЕНИЯ УЧАСТНИКОВ
-// =========================
 model Decision {
   id          String  @id @default(uuid())
   sessionId   String
@@ -509,9 +295,6 @@ model Decision {
   @@index([eventId])
 }
 
-// =========================
-// МЕТРИКИ КОМАНДНОГО ВЗАИМОДЕЙСТВИЯ
-// =========================
 model TeamMetric {
   id        String @id @default(uuid())
   sessionId String @unique
@@ -529,9 +312,6 @@ model TeamMetric {
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// ИТОГОВЫЙ ОТЧЁТ ПО СЕССИИ
-// =========================
 model SessionReport {
   id        String @id @default(uuid())
   sessionId String @unique

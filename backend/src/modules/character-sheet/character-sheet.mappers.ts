@@ -1,29 +1,16 @@
 import type { AbilityName, AbilityScores } from '../calculation/stats.rules'
 import { normalizeItemEffects } from '../calculation/item-effects.rules'
-import { normalizeWeaponConfig } from '../calculation/generated-attacks.rules'
 
 import type {
-  AbilityModifiers,
-  AttackDto,
-  AttackSource,
-  AttackType,
   CharacterItemDto,
   CharacterProfileDto,
   EquipmentSlot,
-  SpellDto,
-  SpellSlotDto,
 } from './character-sheet.types'
 import type {
-  CharacterAttackEntity,
   CharacterEntity,
   CharacterItemEntity,
-  CharacterSpellEntity,
   CharacterStatsEntity,
 } from './character-sheet.contracts'
-
-// =========================================================
-// Public mappers
-// =========================================================
 
 export function toCharacterProfileDto(
   character: CharacterEntity,
@@ -50,56 +37,6 @@ export function toCharacterProfileDto(
   }
 }
 
-export function toAttackDto(
-  attack: CharacterAttackEntity,
-  modifiers: AbilityModifiers,
-  proficiencyBonus: number,
-): AttackDto {
-  const ability = normalizeAttackAbility(attack.ability)
-  const abilityModifier = modifiers[ability]
-
-  const baseDamageBonus = attack.damageBonus ?? 0
-
-  const attackBonus =
-    abilityModifier + (attack.proficient ? proficiencyBonus : 0)
-
-  const damageBonusFinal = baseDamageBonus + abilityModifier
-
-  return {
-    id: attack.id,
-    characterId: attack.characterId,
-    name: attack.name,
-    attackType: normalizeAttackType(attack.attackType),
-    ability,
-    proficient: attack.proficient,
-    damageDice: attack.damageDice ?? '',
-    damageBonus: baseDamageBonus,
-    attackBonus,
-    damageBonusFinal,
-    damageType: attack.damageType ?? '',
-    notes: attack.notes ?? '',
-    source: normalizeAttackSource(attack.source),
-    itemId: attack.itemId ?? null,
-  }
-}
-
-export function toSpellDto(spell: CharacterSpellEntity): SpellDto {
-  return {
-    id: spell.id,
-    characterId: spell.characterId,
-    name: spell.name,
-    level: spell.level,
-    school: spell.school ?? '',
-    castingTime: spell.castingTime ?? '',
-    range: spell.range ?? '',
-    components: spell.components ?? '',
-    duration: spell.duration ?? '',
-    concentration: spell.concentration ?? false,
-    ritual: spell.ritual ?? false,
-    description: spell.description ?? '',
-  }
-}
-
 export function toCharacterItemDto(
   item: CharacterItemEntity,
 ): CharacterItemDto {
@@ -111,8 +48,6 @@ export function toCharacterItemDto(
     item.allowedSlots !== null && item.allowedSlots !== undefined
   const hasTemplateAllowedSlots =
     template?.allowedSlots !== null && template?.allowedSlots !== undefined
-  const hasItemWeaponConfig =
-    item.weaponConfig !== null && item.weaponConfig !== undefined
 
   const type = hasItemType ? item.type : template?.type ?? 'misc'
 
@@ -123,13 +58,10 @@ export function toCharacterItemDto(
   const templateAllowedSlots = normalizeAllowedSlots(template?.allowedSlots)
   const templateSlot = normalizeAllowedSlots(template?.slot)
 
-  const itemWeaponConfig = normalizeWeaponConfig(item.weaponConfig)
-  const templateWeaponConfig = normalizeWeaponConfig(template?.weaponConfig)
-
   return {
     id: item.id,
     itemId: item.id,
-    name: item.nameSnapshot || template?.name || 'Предмет',
+    name: item.nameSnapshot || template?.name || 'Item',
     type,
     effects: hasItemEffects ? itemEffects : templateEffects,
     allowedSlots: hasItemAllowedSlots
@@ -141,9 +73,6 @@ export function toCharacterItemDto(
     equippedSlot: normalizeEquipmentSlot(item.equippedSlot),
     quantity: item.quantity,
     notes: item.notes,
-    weaponConfig: hasItemWeaponConfig
-      ? itemWeaponConfig ?? undefined
-      : templateWeaponConfig ?? undefined,
   }
 }
 
@@ -176,44 +105,6 @@ export function normalizeAbilityName(
 
   return null
 }
-
-export function normalizeSpellSlots(spellSlots: unknown): SpellSlotDto[] {
-  if (!Array.isArray(spellSlots)) {
-    return []
-  }
-
-  return spellSlots
-    .map((slot): SpellSlotDto | null => {
-      if (!slot || typeof slot !== 'object') {
-        return null
-      }
-
-      const rawSlot = slot as Record<string, unknown>
-
-      const level = rawSlot.level
-      const total = rawSlot.total
-      const used = rawSlot.used
-
-      if (
-        typeof level !== 'number' ||
-        typeof total !== 'number' ||
-        typeof used !== 'number'
-      ) {
-        return null
-      }
-
-      return {
-        level,
-        total,
-        used,
-      }
-    })
-    .filter((slot): slot is SpellSlotDto => slot !== null)
-}
-
-// =========================================================
-// Internal item helpers
-// =========================================================
 
 function normalizeEquipmentSlot(slot: unknown): EquipmentSlot | null {
   if (
@@ -249,34 +140,4 @@ function normalizeAllowedSlots(value: unknown): EquipmentSlot[] {
   }
 
   return []
-}
-
-// =========================================================
-// Internal attack helpers
-// =========================================================
-
-function normalizeAttackType(attackType: string | null): AttackType {
-  if (
-    attackType === 'melee' ||
-    attackType === 'ranged' ||
-    attackType === 'spell'
-  ) {
-    return attackType
-  }
-
-  return 'melee'
-}
-
-function normalizeAttackSource(source: string | null | undefined): AttackSource {
-  if (source === 'item') {
-    return 'item'
-  }
-
-  return 'manual'
-}
-
-function normalizeAttackAbility(
-  ability: string | null | undefined,
-): AbilityName {
-  return normalizeAbilityName(ability) ?? 'strength'
 }
