@@ -1,11 +1,17 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import {
   authMiddleware,
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
 import type { CurrentUser } from '../../shared/types'
-import { scenariosService } from './scenarios.service'
+import {
+  ScenarioDirectionNotFoundError,
+  ScenarioForbiddenError,
+  ScenarioHasActiveSessionsError,
+  ScenarioNotFoundError,
+  ScenarioTaskNotFoundError,
+} from './scenarios.errors'
 import {
   createScenarioSchema,
   createScenarioTaskSchema,
@@ -13,17 +19,15 @@ import {
   scenarioTaskParamsSchema,
   updateScenarioSchema,
 } from './scenarios.schemas'
-import {
-  ScenarioForbiddenError,
-  ScenarioNotFoundError,
-  ScenarioTaskNotFoundError,
-} from './scenarios.errors'
+import { scenariosService } from './scenarios.service'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
+function getCurrentUserOrUnauthorized(
+  request: FastifyRequest,
+): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
-  if (!currentUserId) {
+  if (!currentUserId || !currentUserRole) {
     return null
   }
 
@@ -33,14 +37,56 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
   }
 }
 
+function sendScenarioError(error: unknown, reply: FastifyReply) {
+  if (error instanceof ScenarioNotFoundError) {
+    return reply.status(404).send({
+      message: error.message,
+    })
+  }
+
+  if (error instanceof ScenarioTaskNotFoundError) {
+    return reply.status(404).send({
+      message: error.message,
+    })
+  }
+
+  if (error instanceof ScenarioDirectionNotFoundError) {
+    return reply.status(404).send({
+      message: error.message,
+    })
+  }
+
+  if (error instanceof ScenarioForbiddenError) {
+    return reply.status(403).send({
+      message: error.message,
+    })
+  }
+
+  if (error instanceof ScenarioHasActiveSessionsError) {
+    return reply.status(409).send({
+      message: error.message,
+    })
+  }
+
+  throw error
+}
+
 export async function scenariosRoutes(app: FastifyInstance) {
   app.get(
     '/scenarios',
     {
       preHandler: authMiddleware,
     },
-    async (_request, reply) => {
-      const scenarios = await scenariosService.getScenarios()
+    async (request, reply) => {
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      const scenarios = await scenariosService.getScenarios(currentUser)
 
       return reply.status(200).send(scenarios)
     },
@@ -61,20 +107,23 @@ export async function scenariosRoutes(app: FastifyInstance) {
         })
       }
 
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
       try {
         const scenario = await scenariosService.getScenarioById(
           paramsParsed.data.id,
+          currentUser,
         )
 
         return reply.status(200).send(scenario)
       } catch (error) {
-        if (error instanceof ScenarioNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )
@@ -110,13 +159,7 @@ export async function scenariosRoutes(app: FastifyInstance) {
 
         return reply.status(201).send(scenario)
       } catch (error) {
-        if (error instanceof ScenarioForbiddenError) {
-          return reply.status(403).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )
@@ -161,19 +204,7 @@ export async function scenariosRoutes(app: FastifyInstance) {
 
         return reply.status(200).send(scenario)
       } catch (error) {
-        if (error instanceof ScenarioNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        if (error instanceof ScenarioForbiddenError) {
-          return reply.status(403).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )
@@ -206,19 +237,7 @@ export async function scenariosRoutes(app: FastifyInstance) {
 
         return reply.status(204).send()
       } catch (error) {
-        if (error instanceof ScenarioNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        if (error instanceof ScenarioForbiddenError) {
-          return reply.status(403).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )
@@ -263,19 +282,7 @@ export async function scenariosRoutes(app: FastifyInstance) {
 
         return reply.status(201).send(task)
       } catch (error) {
-        if (error instanceof ScenarioNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        if (error instanceof ScenarioForbiddenError) {
-          return reply.status(403).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )
@@ -312,25 +319,7 @@ export async function scenariosRoutes(app: FastifyInstance) {
 
         return reply.status(204).send()
       } catch (error) {
-        if (error instanceof ScenarioNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        if (error instanceof ScenarioTaskNotFoundError) {
-          return reply.status(404).send({
-            message: error.message,
-          })
-        }
-
-        if (error instanceof ScenarioForbiddenError) {
-          return reply.status(403).send({
-            message: error.message,
-          })
-        }
-
-        throw error
+        return sendScenarioError(error, reply)
       }
     },
   )

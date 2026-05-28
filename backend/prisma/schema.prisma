@@ -48,6 +48,11 @@ enum TaskType {
   OPTIONAL
 }
 
+enum ScenarioSourceType {
+  TEMPLATE
+  CUSTOM
+}
+
 enum SessionTaskStatus {
   PLANNED
   ACTIVE
@@ -185,16 +190,15 @@ model ScenarioDirection {
 }
 
 model Scenario {
-  id          String @id @default(uuid())
-  title       String
-  description String
-  goal        String
-  difficulty  Int    @default(1)
-
-  directionId String?
-  createdById String
-
-  isPublicTemplate Boolean @default(false)
+  id               String             @id @default(uuid())
+  title            String
+  description      String
+  goal             String
+  difficulty       Int                @default(1)
+  sourceType       ScenarioSourceType @default(CUSTOM)
+  directionId      String?
+  createdById      String
+  isPublicTemplate Boolean            @default(false)
 
   direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
   createdBy User               @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
@@ -207,6 +211,7 @@ model Scenario {
 
   @@index([directionId])
   @@index([createdById])
+  @@index([sourceType])
 }
 
 model ScenarioTask {
