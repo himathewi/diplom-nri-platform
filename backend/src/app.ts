@@ -13,16 +13,15 @@ import { scenariosRoutes } from "./modules/scenarios/scenarios.routes";
 import { sessionsRoutes } from "./modules/sessions/sessions.routes";
 import { sessionEventsRoutes } from "./modules/session-events/session-events.routes";
 import { decisionsRoutes } from "./modules/decisions/decisions.routes";
-import { teamMetricsRoutes } from './modules/team-metrics/team-metrics.routes'
-import { reportsRoutes } from './modules/reports/reports.routes'
+import { teamMetricsRoutes } from "./modules/team-metrics/team-metrics.routes";
+import { reportsRoutes } from "./modules/reports/reports.routes";
 
 import { characterRoutes } from "./modules/characters/character.routes";
 import { characterStatsRoutes } from "./modules/character-stats/character-stats.routes";
-import { characterInventoryRoutes } from "./modules/character-inventory/character-inventory.routes";
+import { roleClassesRoutes } from "./modules/role-classes/role-classes.routes";
+import { itemsRoutes } from "./modules/items/items.routes";
 
 import { characterRepository } from "./modules/characters/character.repository";
-import { characterStatsRepository as characterStatsDbRepository } from "./modules/character-stats/character-stats.repository";
-import { characterInventoryRepository as characterInventoryDbRepository } from "./modules/character-inventory/character-inventory.repository";
 
 import { characterSheetRoutes } from "./modules/character-sheet/character-sheet.routes";
 import { CharacterSheetService } from "./modules/character-sheet/character-sheet.service";
@@ -95,20 +94,8 @@ export async function buildApp() {
     findByIdForSheet: (id: string) => characterRepository.findByIdForSheet(id)
   };
 
-  const characterStatsRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterStatsDbRepository.findStatsByCharacterId(characterId)
-  };
-
-  const characterItemRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterInventoryDbRepository.findByCharacterId(characterId)
-  };
-
   const characterSheetService = new CharacterSheetService(
-    characterForSheetRepository,
-    characterStatsRepository,
-    characterItemRepository
+    characterForSheetRepository
   );
 
   await app.register(authRoutes);
@@ -121,13 +108,15 @@ export async function buildApp() {
   await app.register(teamMetricsRoutes);
   await app.register(reportsRoutes);
 
+  await app.register(roleClassesRoutes);
+  await app.register(itemsRoutes);
+
+  await app.register(characterStatsRoutes);
+  await app.register(characterRoutes);
+
   await app.register(characterSheetRoutes, {
     characterSheetService
   });
-
-  await app.register(characterStatsRoutes);
-  await app.register(characterInventoryRoutes);
-  await app.register(characterRoutes);
 
   return app;
 }

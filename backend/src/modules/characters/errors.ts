@@ -75,38 +75,3 @@ export class CurrentFatigueExceedsLimitError extends ValidationError {
     })
   }
 }
-
-export class ItemNotFoundError extends NotFoundError {
-  constructor(id?: string) {
-    super(
-      id ? `Item with id "${id}" not found` : 'Item not found',
-      id ? { itemId: id } : undefined,
-    )
-  }
-}
-
-export class ItemTemplateNotFoundError extends NotFoundError {
-  constructor(id?: string) {
-    super(
-      id ? `Item template with id "${id}" not found` : 'Item template not found',
-      id ? { itemTemplateId: id } : undefined,
-    )
-  }
-}
-
-export class ItemOwnershipError extends ForbiddenError {
-  constructor(characterId?: string, itemId?: string) {
-    super('Item does not belong to this character', {
-      characterId,
-      itemId,
-    })
-  }
-}
-
-export class InvalidItemQuantityError extends ValidationError {
-  constructor(quantity?: number) {
-    super('Invalid item quantity', {
-      quantity,
-    })
-  }
-}

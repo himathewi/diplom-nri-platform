@@ -1,5 +1,8 @@
-import type { ItemEffectDto } from '../calculation/item-effects.rules'
-import type { AbilityScores } from '../calculation/stats.rules'
+import type {
+  AbilityScores,
+  AttributeEffectDto,
+  CharacterFatigueDto,
+} from './character-sheet.calculation'
 
 export type AbilityModifiers = AbilityScores
 
@@ -16,6 +19,28 @@ export type CharacterUserDto = {
   role: string
 }
 
+export type ScenarioDirectionDto = {
+  id: string
+  code: string
+  name: string
+  description: string | null
+}
+
+export type CharacterScenarioDto = {
+  id: string
+  title: string
+  description: string
+  goal: string
+  difficulty: number
+  direction: ScenarioDirectionDto | null
+}
+
+export type CharacterTeamDto = {
+  id: string
+  name: string
+  companyName: string | null
+} | null
+
 export type CharacterProfileDto = {
   id: string
   userId: string
@@ -25,57 +50,53 @@ export type CharacterProfileDto = {
   professionalFunction: string | null
   fatigueLimit: number
   currentFatigue: number
-  roleClass: RoleClassDto | null
-  user: CharacterUserDto
   createdAt: Date
   updatedAt: Date
 }
 
 export type CharacterStatsDto = {
   base: AbilityScores
+  itemEffects: AttributeEffectDto[]
   final: AbilityScores
   modifiers: AbilityModifiers
 }
 
-export type CharacterFatigueDto = {
-  limit: number
-  current: number
-  remaining: number
-}
-
-export type CharacterItemDto = {
+export type CharacterParticipantItemDto = {
   id: string
-  itemId: string
-  itemTemplateId: string | null
+  sessionParticipantId: string
+  itemId: string | null
+  nameSnapshot: string
   name: string
   type: string | null
-  effects: ItemEffectDto[]
+  description: string | null
   quantity: number
   notes: string | null
-}
-
-export type CharacterInventoryDto = {
-  items: CharacterItemDto[]
+  isUsed: boolean
+  attributeEffects: AttributeEffectDto[]
+  createdAt: Date
+  updatedAt: Date
 }
 
 export type CharacterSessionDto = {
   id: string
   sessionId: string
+  userId: string
+  characterId: string | null
   status: string
-  scenario: {
-    id: string
-    title: string
-    description: string
-    domain: string
-    goal: string
-    difficulty: number
-  }
-  team: {
-    id: string
-    name: string
-    companyName: string | null
-  } | null
+  scenario: CharacterScenarioDto
+  team: CharacterTeamDto
+  startedAt: Date | null
+  finishedAt: Date | null
   createdAt: Date
+  updatedAt: Date
+}
+
+export type CharacterSessionResourcesDto = {
+  sessionParticipantId: string
+  sessionId: string
+  status: string
+  scenario: CharacterScenarioDto
+  items: CharacterParticipantItemDto[]
 }
 
 export type CharacterSheetDto = {
@@ -84,6 +105,6 @@ export type CharacterSheetDto = {
   roleClass: RoleClassDto | null
   stats: CharacterStatsDto
   fatigue: CharacterFatigueDto
-  inventory: CharacterInventoryDto
   sessions: CharacterSessionDto[]
+  sessionResources: CharacterSessionResourcesDto[]
 }

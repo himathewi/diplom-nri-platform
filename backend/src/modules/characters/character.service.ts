@@ -1,9 +1,17 @@
+import type { CurrentUser } from '../../shared/types'
+
+import { getAbilityModifier } from '../calculation/stats.rules'
+
+import { toCharacterProfileDto } from './character.mappers'
+
+import { characterRepository } from './character.repository'
+
 import type {
   CreateCharacterInput,
   SessionCharacterCreationInput,
   UpdateCharacterInput,
 } from './character.schemas'
-import { characterRepository } from './character.repository'
+
 import {
   CharacterAlreadyExistsForSessionError,
   CharacterForbiddenError,
@@ -14,9 +22,6 @@ import {
   RoleClassNotFoundError,
   SessionNotFoundError,
 } from './errors'
-import { toCharacterProfileDto } from './character.mappers'
-import type { CurrentUser } from '../../shared/types'
-import { getAbilityModifier } from '../calculation/stats.rules'
 
 function canManageAnyCharacter(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
@@ -32,8 +37,8 @@ function canAccessCharacter(
 function canUseSessionForProfile(
   session: {
     moderatorId: string
-    teamId: string | null
     team: { members: { userId: string }[] } | null
+    participants: { userId: string }[]
   },
   currentUser: CurrentUser,
 ) {
@@ -42,22 +47,25 @@ function canUseSessionForProfile(
   }
 
   if (
-    currentUser.role === 'MODERATOR' &&
-    session.moderatorId === currentUser.id
+    currentUser.role === 'MODERATOR'
+    && session.moderatorId === currentUser.id
   ) {
     return true
   }
 
-  if (!session.teamId) {
-    return currentUser.role === 'PARTICIPANT'
+  if (currentUser.role !== 'PARTICIPANT') {
+    return false
   }
 
-  return (
-    currentUser.role === 'PARTICIPANT' &&
-    Boolean(
-      session.team?.members.some((member) => member.userId === currentUser.id),
-    )
+  const isSessionParticipant = session.participants.some(
+    (participant) => participant.userId === currentUser.id,
   )
+
+  const isTeamMember = Boolean(
+    session.team?.members.some((member) => member.userId === currentUser.id),
+  )
+
+  return isSessionParticipant || isTeamMember
 }
 
 function calculateFatigueLimitFromConstitution(constitution: number) {
@@ -180,6 +188,8 @@ export const characterService = {
       throw new CharacterForbiddenError()
     }
 
+    const canSeeHiddenItems = canManageAnyCharacter(currentUser)
+
     return {
       session: {
         id: session.id,
@@ -189,9 +199,16 @@ export const characterService = {
       roleClasses: session.allowedRoleClasses.map(
         (allowedRoleClass) => allowedRoleClass.roleClass,
       ),
-      startingItems: session.allowedItemTemplates.map(
-        (allowedItem) => allowedItem.itemTemplate,
-      ),
+      startingItems: session.allowedItems
+        .filter((allowedItem) => canSeeHiddenItems || allowedItem.isVisible)
+        .map((allowedItem) => ({
+          id: allowedItem.item.id,
+          name: allowedItem.item.name,
+          type: allowedItem.item.type,
+          description: allowedItem.item.description,
+          quantity: allowedItem.quantity,
+          notes: canSeeHiddenItems ? allowedItem.notes : null,
+        })),
       creationRules: {
         oneProfilePerSession: true,
         fatigueLimitFormula: 'max(3, 3 + constitutionModifier)',
@@ -236,15 +253,24 @@ export const characterService = {
     }
 
     assertSessionPlannedForCharacterCreation(session)
+
+    const roleClass = await characterRepository.findRoleClassById(
+      data.roleClassId,
+    )
+
+    if (!roleClass) {
+      throw new RoleClassNotFoundError(data.roleClassId)
+    }
+
     assertRoleClassAllowed(session, data.roleClassId)
 
-    const existingProfiles =
-      await characterRepository.countCharactersBySessionAndUser(
+    const existingParticipant =
+      await characterRepository.findSessionParticipantBySessionAndUser(
         sessionId,
         currentUser.id,
       )
 
-    if (existingProfiles > 0) {
+    if (existingParticipant?.characterId) {
       throw new CharacterAlreadyExistsForSessionError(sessionId, currentUser.id)
     }
 
@@ -274,20 +300,33 @@ export const characterService = {
       throw new CharacterNotFoundError(id)
     }
 
-    if (data.currentFatigue !== undefined) {
-      if (data.currentFatigue > character.fatigueLimit) {
-        throw new CurrentFatigueExceedsLimitError(
-          data.currentFatigue,
-          character.fatigueLimit,
-        )
-      }
-    }
-
     if (data.roleClassId) {
       await assertRoleClassAllowedForCharacterSessions(id, data.roleClassId)
     }
 
-    const updatedCharacter = await characterRepository.update(id, data)
+    const nextConstitution =
+      data.baseStats?.constitution
+      ?? character.stats?.constitution
+      ?? 10
+
+    const nextFatigueLimit = data.baseStats?.constitution !== undefined
+      ? calculateFatigueLimitFromConstitution(nextConstitution)
+      : character.fatigueLimit
+
+    const nextCurrentFatigue =
+      data.currentFatigue ?? character.currentFatigue
+
+    if (nextCurrentFatigue > nextFatigueLimit) {
+      throw new CurrentFatigueExceedsLimitError(
+        nextCurrentFatigue,
+        nextFatigueLimit,
+      )
+    }
+
+    const updatedCharacter = await characterRepository.update(id, {
+      ...data,
+      fatigueLimit: nextFatigueLimit,
+    })
 
     return toCharacterProfileDto(updatedCharacter)
   },

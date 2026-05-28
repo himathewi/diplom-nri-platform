@@ -1,4 +1,10 @@
-import { FastifyInstance } from 'fastify'
+import type { FastifyInstance } from 'fastify'
+
+import {
+  authMiddleware,
+  getCurrentUser,
+} from '../../middlewares/auth.middleware'
+
 import {
   characterParamsSchema,
   createCharacterSchema,
@@ -6,11 +12,8 @@ import {
   sessionCharacterParamsSchema,
   updateCharacterSchema,
 } from './character.schemas'
+
 import { characterService } from './character.service'
-import {
-  authMiddleware,
-  getCurrentUser,
-} from '../../middlewares/auth.middleware'
 
 export async function characterRoutes(app: FastifyInstance) {
   app.get(
@@ -33,7 +36,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       return characterService.getCharacterOptions(
@@ -71,7 +76,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       const character = await characterService.createCharacterForSession(
@@ -93,7 +100,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       return characterService.getCharacters(currentUser)
@@ -118,7 +127,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       return characterService.getCharacterById(paramsParsed.data.id, currentUser)
@@ -143,7 +154,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       const character = await characterService.createCharacter(
@@ -181,7 +194,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       return characterService.updateCharacter(
@@ -210,7 +225,9 @@ export async function characterRoutes(app: FastifyInstance) {
       const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
-        return reply.status(401).send({ message: 'Unauthorized' })
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
       }
 
       await characterService.deleteCharacter(paramsParsed.data.id, currentUser)

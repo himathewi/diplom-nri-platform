@@ -1,8 +1,11 @@
 import { prisma } from '../../lib/prisma'
+
 import type {
   SessionCharacterCreationInput,
   UpdateCharacterInput,
+  UpdateCharacterStatsInput,
 } from './character.schemas'
+
 import {
   characterProfileSelect,
   roleClassSelect,
@@ -17,6 +20,22 @@ const userSelect = {
   updatedAt: true,
 } as const
 
+const sessionScenarioSelect = {
+  id: true,
+  title: true,
+  description: true,
+  goal: true,
+  difficulty: true,
+  direction: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      description: true,
+    },
+  },
+} as const
+
 const characterSheetInclude = {
   user: {
     select: userSelect,
@@ -25,30 +44,21 @@ const characterSheetInclude = {
     select: roleClassSelect,
   },
   stats: true,
-  items: {
-    include: {
-      itemTemplate: true,
-    },
-    orderBy: {
-      createdAt: 'asc' as const,
-    },
-  },
   sessionParticipants: {
     include: {
+      user: {
+        select: userSelect,
+      },
       session: {
         select: {
           id: true,
           status: true,
+          startedAt: true,
+          finishedAt: true,
           createdAt: true,
+          updatedAt: true,
           scenario: {
-            select: {
-              id: true,
-              title: true,
-              description: true,
-              domain: true,
-              goal: true,
-              difficulty: true,
-            },
+            select: sessionScenarioSelect,
           },
           team: {
             select: {
@@ -57,6 +67,14 @@ const characterSheetInclude = {
               companyName: true,
             },
           },
+        },
+      },
+      items: {
+        include: {
+          item: true,
+        },
+        orderBy: {
+          createdAt: 'asc' as const,
         },
       },
     },
@@ -72,6 +90,53 @@ type CreateCharacterForSessionRepositoryInput =
     sessionId: string
     fatigueLimit: number
   }
+
+type UpdateCharacterRepositoryInput = UpdateCharacterInput & {
+  fatigueLimit?: number
+}
+
+function getDefaultStats() {
+  return {
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    intelligence: 10,
+    wisdom: 10,
+    charisma: 10,
+  }
+}
+
+function buildStatsCreateData(
+  baseStats?: SessionCharacterCreationInput['baseStats'],
+) {
+  return {
+    ...getDefaultStats(),
+    ...(baseStats ?? {}),
+  }
+}
+
+function buildStatsUpdateData(baseStats: UpdateCharacterStatsInput) {
+  return {
+    ...(baseStats.strength !== undefined && {
+      strength: baseStats.strength,
+    }),
+    ...(baseStats.dexterity !== undefined && {
+      dexterity: baseStats.dexterity,
+    }),
+    ...(baseStats.constitution !== undefined && {
+      constitution: baseStats.constitution,
+    }),
+    ...(baseStats.intelligence !== undefined && {
+      intelligence: baseStats.intelligence,
+    }),
+    ...(baseStats.wisdom !== undefined && {
+      wisdom: baseStats.wisdom,
+    }),
+    ...(baseStats.charisma !== undefined && {
+      charisma: baseStats.charisma,
+    }),
+  }
+}
 
 export const characterRepository = {
   findAll() {
@@ -97,14 +162,18 @@ export const characterRepository = {
 
   findById(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: characterProfileSelect,
     })
   },
 
   findAccessById(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: {
         id: true,
         userId: true,
@@ -114,12 +183,16 @@ export const characterRepository = {
 
   findByIdForRules(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: {
         id: true,
         userId: true,
+        roleClassId: true,
         fatigueLimit: true,
         currentFatigue: true,
+        stats: true,
         sessionParticipants: {
           select: {
             sessionId: true,
@@ -131,7 +204,9 @@ export const characterRepository = {
 
   findByIdForSheet(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       include: characterSheetInclude,
     })
   },
@@ -156,14 +231,7 @@ export const characterRepository = {
         moderatorId: true,
         teamId: true,
         scenario: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            domain: true,
-            goal: true,
-            difficulty: true,
-          },
+          select: sessionScenarioSelect,
         },
         team: {
           select: {
@@ -175,6 +243,12 @@ export const characterRepository = {
             },
           },
         },
+        participants: {
+          select: {
+            userId: true,
+            characterId: true,
+          },
+        },
         allowedRoleClasses: {
           include: {
             roleClass: {
@@ -182,20 +256,23 @@ export const characterRepository = {
             },
           },
         },
-        allowedItemTemplates: {
+        allowedItems: {
           include: {
-            itemTemplate: true,
+            item: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
           },
         },
       },
     })
   },
 
-  countCharactersBySessionAndUser(sessionId: string, userId: string) {
-    return prisma.sessionParticipant.count({
+  findSessionParticipantBySessionAndUser(sessionId: string, userId: string) {
+    return prisma.sessionParticipant.findUnique({
       where: {
-        sessionId,
-        character: {
+        sessionId_userId: {
+          sessionId,
           userId,
         },
       },
@@ -214,40 +291,64 @@ export const characterRepository = {
   },
 
   createForSession(data: CreateCharacterForSessionRepositoryInput) {
-    return prisma.character.create({
-      data: {
-        name: data.name,
-        userId: data.userId,
-        roleClassId: data.roleClassId,
-        description: data.description ?? null,
-        professionalFunction: data.professionalFunction ?? null,
-        fatigueLimit: data.fatigueLimit,
-        currentFatigue: 0,
-        stats: {
-          create: {
-            strength: data.baseStats?.strength ?? 10,
-            dexterity: data.baseStats?.dexterity ?? 10,
-            constitution: data.baseStats?.constitution ?? 10,
-            intelligence: data.baseStats?.intelligence ?? 10,
-            wisdom: data.baseStats?.wisdom ?? 10,
-            charisma: data.baseStats?.charisma ?? 10,
+    return prisma.$transaction(async (tx) => {
+      const character = await tx.character.create({
+        data: {
+          name: data.name,
+          userId: data.userId,
+          roleClassId: data.roleClassId,
+          description: data.description ?? null,
+          professionalFunction: data.professionalFunction ?? null,
+          fatigueLimit: data.fatigueLimit,
+          currentFatigue: 0,
+          stats: {
+            create: buildStatsCreateData(data.baseStats),
           },
         },
-        sessionParticipants: {
-          create: {
+        select: characterProfileSelect,
+      })
+
+      const existingParticipant = await tx.sessionParticipant.findUnique({
+        where: {
+          sessionId_userId: {
             sessionId: data.sessionId,
+            userId: data.userId,
           },
         },
-      },
-      select: characterProfileSelect,
+      })
+
+      if (existingParticipant) {
+        await tx.sessionParticipant.update({
+          where: {
+            id: existingParticipant.id,
+          },
+          data: {
+            characterId: character.id,
+          },
+        })
+      } else {
+        await tx.sessionParticipant.create({
+          data: {
+            sessionId: data.sessionId,
+            userId: data.userId,
+            characterId: character.id,
+          },
+        })
+      }
+
+      return character
     })
   },
 
-  update(id: string, data: UpdateCharacterInput) {
+  update(id: string, data: UpdateCharacterRepositoryInput) {
     return prisma.character.update({
-      where: { id },
+      where: {
+        id,
+      },
       data: {
-        ...(data.name !== undefined && { name: data.name }),
+        ...(data.name !== undefined && {
+          name: data.name,
+        }),
         ...(data.roleClassId !== undefined && {
           roleClassId: data.roleClassId,
         }),
@@ -257,8 +358,22 @@ export const characterRepository = {
         ...(data.professionalFunction !== undefined && {
           professionalFunction: data.professionalFunction,
         }),
+        ...(data.fatigueLimit !== undefined && {
+          fatigueLimit: data.fatigueLimit,
+        }),
         ...(data.currentFatigue !== undefined && {
           currentFatigue: data.currentFatigue,
+        }),
+        ...(data.baseStats !== undefined && {
+          stats: {
+            upsert: {
+              create: {
+                ...getDefaultStats(),
+                ...data.baseStats,
+              },
+              update: buildStatsUpdateData(data.baseStats),
+            },
+          },
         }),
       },
       select: characterProfileSelect,
@@ -267,7 +382,9 @@ export const characterRepository = {
 
   delete(id: string) {
     return prisma.character.delete({
-      where: { id },
+      where: {
+        id,
+      },
     })
   },
 }

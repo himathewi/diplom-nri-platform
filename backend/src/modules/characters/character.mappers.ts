@@ -1,9 +1,22 @@
 import type { Prisma } from '@prisma/client'
 
+function getAbilityModifier(value: number) {
+  return Math.floor((value - 10) / 2)
+}
+
 export const roleClassSelect = {
   id: true,
   name: true,
   description: true,
+} as const
+
+export const characterStatsSelect = {
+  strength: true,
+  dexterity: true,
+  constitution: true,
+  intelligence: true,
+  wisdom: true,
+  charisma: true,
 } as const
 
 export const characterProfileSelect = {
@@ -19,14 +32,7 @@ export const characterProfileSelect = {
     select: roleClassSelect,
   },
   stats: {
-    select: {
-      strength: true,
-      dexterity: true,
-      constitution: true,
-      intelligence: true,
-      wisdom: true,
-      charisma: true,
-    },
+    select: characterStatsSelect,
   },
   createdAt: true,
   updatedAt: true,
@@ -42,6 +48,17 @@ export type RoleClassDto = {
   description: string | null
 }
 
+export type CharacterStatsDto = {
+  strength: number
+  dexterity: number
+  constitution: number
+  intelligence: number
+  wisdom: number
+  charisma: number
+}
+
+export type CharacterModifiersDto = CharacterStatsDto
+
 export type CharacterProfileDto = {
   id: string
   userId: string
@@ -52,14 +69,8 @@ export type CharacterProfileDto = {
   professionalFunction: string | null
   fatigueLimit: number
   currentFatigue: number
-  baseStats: {
-    strength: number
-    dexterity: number
-    constitution: number
-    intelligence: number
-    wisdom: number
-    charisma: number
-  } | null
+  baseStats: CharacterStatsDto | null
+  modifiers: CharacterModifiersDto | null
   createdAt: Date
   updatedAt: Date
 }
@@ -78,9 +89,45 @@ export function toRoleClassDto(
   }
 }
 
+function toCharacterStatsDto(
+  stats: CharacterProfileEntity['stats'],
+): CharacterStatsDto | null {
+  if (!stats) {
+    return null
+  }
+
+  return {
+    strength: stats.strength,
+    dexterity: stats.dexterity,
+    constitution: stats.constitution,
+    intelligence: stats.intelligence,
+    wisdom: stats.wisdom,
+    charisma: stats.charisma,
+  }
+}
+
+function toCharacterModifiersDto(
+  stats: CharacterStatsDto | null,
+): CharacterModifiersDto | null {
+  if (!stats) {
+    return null
+  }
+
+  return {
+    strength: getAbilityModifier(stats.strength),
+    dexterity: getAbilityModifier(stats.dexterity),
+    constitution: getAbilityModifier(stats.constitution),
+    intelligence: getAbilityModifier(stats.intelligence),
+    wisdom: getAbilityModifier(stats.wisdom),
+    charisma: getAbilityModifier(stats.charisma),
+  }
+}
+
 export function toCharacterProfileDto(
   character: CharacterProfileEntity,
 ): CharacterProfileDto {
+  const baseStats = toCharacterStatsDto(character.stats)
+
   return {
     id: character.id,
     userId: character.userId,
@@ -91,16 +138,8 @@ export function toCharacterProfileDto(
     professionalFunction: character.professionalFunction ?? null,
     fatigueLimit: character.fatigueLimit,
     currentFatigue: character.currentFatigue,
-    baseStats: character.stats
-      ? {
-          strength: character.stats.strength,
-          dexterity: character.stats.dexterity,
-          constitution: character.stats.constitution,
-          intelligence: character.stats.intelligence,
-          wisdom: character.stats.wisdom,
-          charisma: character.stats.charisma,
-        }
-      : null,
+    baseStats,
+    modifiers: toCharacterModifiersDto(baseStats),
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
   }
