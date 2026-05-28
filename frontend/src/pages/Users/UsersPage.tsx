@@ -1,11 +1,8 @@
 import { useEffect } from 'react'
 import { useUsersStore } from '../../stores/usersStore'
+import { getLabel, userRoleLabels } from '../../constants/labels'
 
-const roleLabels: Record<string, string> = {
-  ADMIN: 'Администратор',
-  MODERATOR: 'Модератор',
-  PARTICIPANT: 'Участник',
-}
+
 
 export function UsersPage() {
   const {
@@ -77,7 +74,7 @@ export function UsersPage() {
                   <td>{user.email}</td>
                   <td>
                     <span className="role-badge">
-                      {roleLabels[user.role] ?? user.role}
+                      {getLabel(userRoleLabels, user.role)}
                     </span>
                   </td>
                 </tr>

@@ -1,13 +1,8 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { getLabel, userRoleLabels } from '../constants/labels'
 
-const roleLabels: Record<string, string> = {
-  ADMIN: 'Администратор',
-  MODERATOR: 'Модератор',
-  PARTICIPANT: 'Участник',
-
-}
 
 export function ProfilePage() {
   const {
@@ -72,7 +67,7 @@ export function ProfilePage() {
 
           <div>
             <dt>Роль</dt>
-            <dd>{roleLabels[user.role] ?? user.role}</dd>
+            <dd>{getLabel(userRoleLabels, user.role)}</dd>
           </div>
 
           <div>
