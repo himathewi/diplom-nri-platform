@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+
 import type {
   CreateSessionEventInput,
   UpdateSessionEventInput,
@@ -11,7 +12,7 @@ const userSelect = {
   role: true,
   createdAt: true,
   updatedAt: true,
-}
+} as const
 
 const sessionInclude = {
   team: {
@@ -30,16 +31,18 @@ const sessionInclude = {
   },
   participants: {
     include: {
+      user: {
+        select: userSelect,
+      },
       character: {
         include: {
-          user: {
-            select: userSelect,
-          },
+          roleClass: true,
+          stats: true,
         },
       },
     },
   },
-}
+} as const
 
 const eventInclude = {
   session: {
@@ -50,7 +53,7 @@ const eventInclude = {
       createdAt: 'asc' as const,
     },
   },
-}
+} as const
 
 export const sessionEventsRepository = {
   findSessionById(sessionId: string) {
@@ -96,7 +99,7 @@ export const sessionEventsRepository = {
         title: data.title,
         description: data.description,
         eventType: data.eventType,
-        impact: data.impact,
+        impact: data.impact ?? null,
       },
       include: eventInclude,
     })
@@ -107,7 +110,20 @@ export const sessionEventsRepository = {
       where: {
         id: eventId,
       },
-      data,
+      data: {
+        ...(data.title !== undefined && {
+          title: data.title,
+        }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.eventType !== undefined && {
+          eventType: data.eventType,
+        }),
+        ...(data.impact !== undefined && {
+          impact: data.impact,
+        }),
+      },
       include: eventInclude,
     })
   },

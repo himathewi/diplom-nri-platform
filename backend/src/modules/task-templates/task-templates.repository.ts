@@ -1,0 +1,214 @@
+import { prisma } from '../../lib/prisma'
+
+import type {
+  AddTaskTemplateRequiredItemInput,
+  CreateTaskTemplateInput,
+  UpdateTaskTemplateInput,
+} from './task-templates.schemas'
+
+const safeUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
+const directionSelect = {
+  id: true,
+  code: true,
+  name: true,
+  description: true,
+  isActive: true,
+} as const
+
+const requiredItemInclude = {
+  item: true,
+} as const
+
+const taskTemplateInclude = {
+  direction: {
+    select: directionSelect,
+  },
+  createdBy: {
+    select: safeUserSelect,
+  },
+  requiredItems: {
+    include: requiredItemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+} as const
+
+export const taskTemplatesRepository = {
+  findManyForManager() {
+    return prisma.taskTemplate.findMany({
+      include: taskTemplateInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+  },
+
+  findManyForParticipant() {
+    return prisma.taskTemplate.findMany({
+      where: {
+        isPublic: true,
+        isActive: true,
+      },
+      include: taskTemplateInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+  },
+
+  findById(taskTemplateId: string) {
+    return prisma.taskTemplate.findUnique({
+      where: {
+        id: taskTemplateId,
+      },
+      include: taskTemplateInclude,
+    })
+  },
+
+  findDirectionById(directionId: string) {
+    return prisma.scenarioDirection.findUnique({
+      where: {
+        id: directionId,
+      },
+      select: directionSelect,
+    })
+  },
+
+  findItemById(itemId: string) {
+    return prisma.item.findUnique({
+      where: {
+        id: itemId,
+      },
+    })
+  },
+
+  create(data: CreateTaskTemplateInput, createdById: string) {
+    return prisma.taskTemplate.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        taskType: data.taskType,
+        directionId: data.directionId ?? null,
+        createdById,
+        difficulty: data.difficulty,
+        fatigueCost: data.fatigueCost,
+        expectedResult: data.expectedResult ?? null,
+        moderatorNotes: data.moderatorNotes ?? null,
+        isPublic: data.isPublic,
+        isActive: data.isActive,
+      },
+      include: taskTemplateInclude,
+    })
+  },
+
+  update(taskTemplateId: string, data: UpdateTaskTemplateInput) {
+    return prisma.taskTemplate.update({
+      where: {
+        id: taskTemplateId,
+      },
+      data: {
+        ...(data.title !== undefined && {
+          title: data.title,
+        }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.taskType !== undefined && {
+          taskType: data.taskType,
+        }),
+        ...(data.directionId !== undefined && {
+          directionId: data.directionId,
+        }),
+        ...(data.difficulty !== undefined && {
+          difficulty: data.difficulty,
+        }),
+        ...(data.fatigueCost !== undefined && {
+          fatigueCost: data.fatigueCost,
+        }),
+        ...(data.expectedResult !== undefined && {
+          expectedResult: data.expectedResult,
+        }),
+        ...(data.moderatorNotes !== undefined && {
+          moderatorNotes: data.moderatorNotes,
+        }),
+        ...(data.isPublic !== undefined && {
+          isPublic: data.isPublic,
+        }),
+        ...(data.isActive !== undefined && {
+          isActive: data.isActive,
+        }),
+      },
+      include: taskTemplateInclude,
+    })
+  },
+
+  deactivate(taskTemplateId: string) {
+    return prisma.taskTemplate.update({
+      where: {
+        id: taskTemplateId,
+      },
+      data: {
+        isActive: false,
+      },
+      include: taskTemplateInclude,
+    })
+  },
+
+  findRequiredItem(taskTemplateId: string, itemId: string) {
+    return prisma.taskTemplateRequiredItem.findUnique({
+      where: {
+        taskTemplateId_itemId: {
+          taskTemplateId,
+          itemId,
+        },
+      },
+      include: requiredItemInclude,
+    })
+  },
+
+  upsertRequiredItem(
+    taskTemplateId: string,
+    data: AddTaskTemplateRequiredItemInput,
+  ) {
+    return prisma.taskTemplateRequiredItem.upsert({
+      where: {
+        taskTemplateId_itemId: {
+          taskTemplateId,
+          itemId: data.itemId,
+        },
+      },
+      update: {
+        quantity: data.quantity,
+        notes: data.notes ?? null,
+      },
+      create: {
+        taskTemplateId,
+        itemId: data.itemId,
+        quantity: data.quantity,
+        notes: data.notes ?? null,
+      },
+      include: requiredItemInclude,
+    })
+  },
+
+  deleteRequiredItem(taskTemplateId: string, itemId: string) {
+    return prisma.taskTemplateRequiredItem.delete({
+      where: {
+        taskTemplateId_itemId: {
+          taskTemplateId,
+          itemId,
+        },
+      },
+      include: requiredItemInclude,
+    })
+  },
+}

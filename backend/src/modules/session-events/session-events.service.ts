@@ -1,8 +1,5 @@
-import { sessionEventsRepository } from './session-events.repository'
-import type {
-  CreateSessionEventInput,
-  UpdateSessionEventInput,
-} from './session-events.schemas'
+import type { CurrentUser } from '../../shared/types'
+
 import {
   SessionEventForbiddenError,
   SessionEventNotFoundError,
@@ -10,40 +7,50 @@ import {
   SessionEventSessionNotActiveError,
   SessionEventSessionNotFoundError,
 } from './session-events.errors'
-import type { CurrentUser } from '../../shared/types'
+
+import { sessionEventsRepository } from './session-events.repository'
+
+import type {
+  CreateSessionEventInput,
+  UpdateSessionEventInput,
+} from './session-events.schemas'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof sessionEventsRepository.findSessionById>
 >
 
 function canManageSessionEvents(
-  session: { moderatorId: string | null },
+  session: { moderatorId: string },
   currentUser: CurrentUser,
 ) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
-  )
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  return currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id
 }
 
 function canViewAllSessionEvents(currentUser: CurrentUser) {
   return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
 }
 
-function canViewSession(session: NonNullable<SessionForAccess>, currentUser: CurrentUser) {
+function canViewSession(
+  session: NonNullable<SessionForAccess>,
+  currentUser: CurrentUser,
+) {
   if (canViewAllSessionEvents(currentUser)) {
     return true
   }
 
-  const isTeamMember = session.team?.members.some(
-    (member) => member.userId === currentUser.id,
+  const isTeamMember = Boolean(
+    session.team?.members.some((member) => member.userId === currentUser.id),
   )
 
   const isParticipant = session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
+    (participant) => participant.userId === currentUser.id,
   )
 
-  return Boolean(isTeamMember || isParticipant)
+  return isTeamMember || isParticipant
 }
 
 function assertCanViewSession(
@@ -56,7 +63,7 @@ function assertCanViewSession(
 }
 
 function assertCanManageSessionEvents(
-  session: { moderatorId: string | null },
+  session: { moderatorId: string },
   currentUser: CurrentUser,
 ) {
   if (!canManageSessionEvents(session, currentUser)) {
