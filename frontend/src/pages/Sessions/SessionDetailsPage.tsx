@@ -1,46 +1,16 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useSessionEventsStore } from '../../stores/sessionEventsStore'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useSessionsStore } from '../../stores/sessionsStore'
-import type { SessionEventType } from '../../types/sessionEvent'
+import {
+  getLabel,
+  scenarioDomainLabels,
+  sessionEventTypeLabels,
+  sessionStatusLabels,
+} from '../../constants/labels'
 import { useDecisionsStore } from '../../stores/decisionsStore'
 import { useReportsStore } from '../../stores/reportsStore'
-
-const statusLabels: Record<string, string> = {
-  PLANNED: 'Запланирована',
-  ACTIVE: 'Активна',
-  FINISHED: 'Завершена',
-}
-
-const domainLabels: Record<string, string> = {
-  CROP_PRODUCTION: 'Растениеводство',
-  GREENHOUSE: 'Тепличное хозяйство',
-  LIVESTOCK: 'Животноводство',
-  LOGISTICS: 'Логистика',
-  PROCESSING: 'Переработка продукции',
-  ROBOTICS: 'Робототехника',
-  TEAMBUILDING: 'Командное обучение',
-}
-
-function getStatusLabel(status: string) {
-  return statusLabels[status] ?? status
-}
-
-function getDomainLabel(domain: string) {
-  return domainLabels[domain] ?? domain
-}
-const eventTypeLabels: Record<string, string> = {
-  PRODUCTION_PROBLEM: 'Производственная проблема',
-  WEATHER_CHANGE: 'Изменение погодных условий',
-  RESOURCE_LIMIT: 'Ограничение ресурсов',
-  EQUIPMENT_FAILURE: 'Сбой оборудования',
-  TEAM_CONFLICT: 'Командный конфликт',
-  INFORMATION_UPDATE: 'Информационное обновление',
-}
-
-function getEventTypeLabel(eventType: string) {
-  return eventTypeLabels[eventType] ?? eventType
-}
+import { useSessionEventsStore } from '../../stores/sessionEventsStore'
+import { useSessionsStore } from '../../stores/sessionsStore'
+import type { SessionEventType } from '../../types/sessionEvent'
 
 export function SessionDetailsPage() {
   const { id } = useParams()
@@ -382,8 +352,8 @@ async function handleDeleteReport() {
           <p>{selectedSession.scenario.description}</p>
 
           <div className="scenario-card__meta">
-            <span>{getStatusLabel(selectedSession.status)}</span>
-            <span>{getDomainLabel(selectedSession.scenario.domain)}</span>
+            <span>{getLabel(sessionStatusLabels, selectedSession.status)}</span>
+            <span>{getLabel(scenarioDomainLabels, selectedSession.scenario.domain)}</span>
             <span>Участников: {participants.length}</span>
           </div>
         </div>
@@ -429,7 +399,7 @@ async function handleDeleteReport() {
           <dl className="details-list">
             <div>
               <dt>Статус</dt>
-              <dd>{getStatusLabel(selectedSession.status)}</dd>
+              <dd>getLabel(sessionStatusLabels, selectedSession.status)</dd>
             </div>
 
             <div>
@@ -631,7 +601,7 @@ async function handleDeleteReport() {
                       <h3>{sessionEvent.title}</h3>
 
                       <div className="scenario-card__meta">
-                        <span>{getEventTypeLabel(sessionEvent.eventType)}</span>
+                        <span>{getLabel(sessionEventTypeLabels, sessionEvent.eventType)}</span>
                       </div>
                     </div>
 

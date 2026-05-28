@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useScenariosStore } from '../../stores/scenariosStore'
 import type { ScenarioDomain } from '../../types/scenario'
+import { getLabel, scenarioDomainLabels } from '../../constants/labels'
 
 const domainOptions: Array<{ value: ScenarioDomain | 'ALL'; label: string }> = [
   { value: 'ALL', label: 'Все направления' },
@@ -14,17 +15,7 @@ const domainOptions: Array<{ value: ScenarioDomain | 'ALL'; label: string }> = [
   { value: 'TEAMBUILDING', label: 'Командное обучение' },
 ]
 
-const domainLabels = domainOptions.reduce<Record<string, string>>(
-  (acc, option) => {
-    acc[option.value] = option.label
-    return acc
-  },
-  {},
-)
 
-function getDomainLabel(domain: string) {
-  return domainLabels[domain] ?? domain
-}
 
 export function ScenariosPage() {
   const { scenarios, isLoading, error, fetchScenarios, clearError } =
@@ -140,7 +131,7 @@ export function ScenariosPage() {
             <p>{scenario.description}</p>
 
             <div className="scenario-card__meta">
-              <span>{getDomainLabel(scenario.domain)}</span>
+              <span>{getLabel(scenarioDomainLabels, scenario.domain)}</span>
               <span>Задач: {scenario.tasks?.length ?? 0}</span>
             </div>
 

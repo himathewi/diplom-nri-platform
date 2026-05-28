@@ -1,30 +1,13 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useSessionsStore } from '../../stores/sessionsStore'
+import {
+  getLabel,
+  scenarioDomainLabels,
+  sessionStatusLabels,
+} from '../../constants/labels'
 
-const statusLabels: Record<string, string> = {
-  PLANNED: 'Запланирована',
-  ACTIVE: 'Активна',
-  FINISHED: 'Завершена',
-}
 
-const domainLabels: Record<string, string> = {
-  CROP_PRODUCTION: 'Растениеводство',
-  GREENHOUSE: 'Тепличное хозяйство',
-  LIVESTOCK: 'Животноводство',
-  LOGISTICS: 'Логистика',
-  PROCESSING: 'Переработка продукции',
-  ROBOTICS: 'Робототехника',
-  TEAMBUILDING: 'Командное обучение',
-}
-
-function getStatusLabel(status: string) {
-  return statusLabels[status] ?? status
-}
-
-function getDomainLabel(domain: string) {
-  return domainLabels[domain] ?? domain
-}
 
 export function SessionsPage() {
   const {
@@ -91,13 +74,13 @@ export function SessionsPage() {
             <article className="scenario-card" key={session.id}>
               <div className="scenario-card__header">
                 <h2>{session.scenario.title}</h2>
-                <span>{getStatusLabel(session.status)}</span>
+                <span>{getLabel(sessionStatusLabels, session.status)}</span>
               </div>
 
               <p>{session.scenario.description}</p>
 
               <div className="scenario-card__meta">
-                <span>{getDomainLabel(session.scenario.domain)}</span>
+                <span>{getLabel(scenarioDomainLabels, session.scenario.domain)}</span>
                 <span>Команда: {session.team?.name ?? 'Не назначена'}</span>
                 <span>Участников: {session.participants.length}</span>
               </div>

@@ -3,20 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useScenariosStore } from '../../stores/scenariosStore'
 import { useSessionsStore } from '../../stores/sessionsStore'
 import { useTeamsStore } from '../../stores/teamsStore'
+import { getLabel, scenarioDomainLabels } from '../../constants/labels'
 
-const domainLabels: Record<string, string> = {
-  CROP_PRODUCTION: 'Растениеводство',
-  GREENHOUSE: 'Тепличное хозяйство',
-  LIVESTOCK: 'Животноводство',
-  LOGISTICS: 'Логистика',
-  PROCESSING: 'Переработка продукции',
-  ROBOTICS: 'Робототехника',
-  TEAMBUILDING: 'Командное обучение',
-}
-
-function getDomainLabel(domain: string) {
-  return domainLabels[domain] ?? domain
-}
 
 export function CreateSessionPage() {
   const navigate = useNavigate()
@@ -138,7 +126,7 @@ export function CreateSessionPage() {
 
                 {scenarios.map((scenario) => (
                   <option key={scenario.id} value={scenario.id}>
-                    {scenario.title} · {getDomainLabel(scenario.domain)}
+                    {scenario.title} · {getLabel(scenarioDomainLabels, scenario.domain)}
                   </option>
                 ))}
               </select>
@@ -206,7 +194,7 @@ export function CreateSessionPage() {
               <p>{selectedScenario.description}</p>
 
               <div className="scenario-card__meta">
-                <span>{getDomainLabel(selectedScenario.domain)}</span>
+                <span>{getLabel(scenarioDomainLabels, selectedScenario.domain)}</span>
                 <span>Сложность: {selectedScenario.difficulty} / 5</span>
                 <span>Задач: {selectedScenario.tasks?.length ?? 0}</span>
               </div>
