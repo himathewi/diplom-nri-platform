@@ -1,11 +1,24 @@
-import type { FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import {
   authMiddleware,
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
 import type { CurrentUser } from '../../shared/types'
-import { decisionsService } from './decisions.service'
+import {
+  DecisionEventNotFoundError,
+  DecisionEventSessionMismatchError,
+  DecisionForbiddenError,
+  DecisionNotFoundError,
+  DecisionSessionNotActiveError,
+  DecisionSessionNotFoundError,
+  DecisionSessionParticipantMismatchError,
+  DecisionSessionParticipantNotFoundError,
+  DecisionSessionTaskHiddenError,
+  DecisionSessionTaskMismatchError,
+  DecisionSessionTaskNotFoundError,
+  DecisionUserNotSessionParticipantError,
+} from './decisions.errors'
 import {
   createDecisionSchema,
   decisionParamsSchema,
@@ -13,22 +26,15 @@ import {
   evaluateDecisionSchema,
   updateDecisionSchema,
 } from './decisions.schemas'
-import {
-  DecisionCharacterNotFoundError,
-  DecisionCharacterNotParticipantError,
-  DecisionEventNotFoundError,
-  DecisionEventSessionMismatchError,
-  DecisionForbiddenError,
-  DecisionNotFoundError,
-  DecisionSessionNotActiveError,
-  DecisionSessionNotFoundError,
-} from './decisions.errors'
+import { decisionsService } from './decisions.service'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
+function getCurrentUserOrUnauthorized(
+  request: FastifyRequest,
+): CurrentUser | null {
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
-  if (!currentUserId) {
+  if (!currentUserId || !currentUserRole) {
     return null
   }
 
@@ -43,15 +49,19 @@ function handleDecisionError(error: unknown, reply: FastifyReply) {
     error instanceof DecisionNotFoundError ||
     error instanceof DecisionSessionNotFoundError ||
     error instanceof DecisionEventNotFoundError ||
-    error instanceof DecisionCharacterNotFoundError ||
-    error instanceof DecisionCharacterNotParticipantError
+    error instanceof DecisionSessionTaskNotFoundError ||
+    error instanceof DecisionSessionParticipantNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
     })
   }
 
-  if (error instanceof DecisionForbiddenError) {
+  if (
+    error instanceof DecisionForbiddenError ||
+    error instanceof DecisionSessionTaskHiddenError ||
+    error instanceof DecisionUserNotSessionParticipantError
+  ) {
     return reply.status(403).send({
       message: error.message,
     })
@@ -63,7 +73,11 @@ function handleDecisionError(error: unknown, reply: FastifyReply) {
     })
   }
 
-  if (error instanceof DecisionEventSessionMismatchError) {
+  if (
+    error instanceof DecisionEventSessionMismatchError ||
+    error instanceof DecisionSessionTaskMismatchError ||
+    error instanceof DecisionSessionParticipantMismatchError
+  ) {
     return reply.status(400).send({
       message: error.message,
     })

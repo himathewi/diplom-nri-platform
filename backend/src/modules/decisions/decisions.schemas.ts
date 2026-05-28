@@ -14,8 +14,9 @@ export const decisionSessionParamsSchema = z
 
 export const createDecisionSchema = z
   .object({
-    characterId: z.string().uuid().optional().nullable(),
+    sessionParticipantId: z.string().uuid().optional().nullable(),
     eventId: z.string().uuid().optional().nullable(),
+    sessionTaskId: z.string().uuid().optional().nullable(),
     description: z.string().min(1),
     result: z.string().optional().nullable(),
   })
@@ -23,8 +24,9 @@ export const createDecisionSchema = z
 
 export const updateDecisionSchema = z
   .object({
-    characterId: z.string().uuid().optional().nullable(),
+    sessionParticipantId: z.string().uuid().optional().nullable(),
     eventId: z.string().uuid().optional().nullable(),
+    sessionTaskId: z.string().uuid().optional().nullable(),
     description: z.string().min(1).optional(),
     result: z.string().optional().nullable(),
   })
