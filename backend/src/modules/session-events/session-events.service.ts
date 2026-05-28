@@ -1,8 +1,5 @@
-import { sessionEventsRepository } from './session-events.repository'
-import type {
-  CreateSessionEventInput,
-  UpdateSessionEventInput,
-} from './session-events.schemas'
+import type { CurrentUser } from '../../shared/types'
+
 import {
   SessionEventForbiddenError,
   SessionEventNotFoundError,
@@ -10,44 +7,53 @@ import {
   SessionEventSessionNotActiveError,
   SessionEventSessionNotFoundError,
 } from './session-events.errors'
-import type { CurrentUser } from '../../shared/types'
+
+import { sessionEventsRepository } from './session-events.repository'
+
+import type {
+  CreateSessionEventInput,
+  UpdateSessionEventInput,
+} from './session-events.schemas'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof sessionEventsRepository.findSessionById>
 >
 
 function canManageSessionEvents(
-  session: { moderatorId: string | null },
+  session: { moderatorId: string },
   currentUser: CurrentUser,
 ) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    (currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id)
-  )
-}
-
-function canViewAllSessionEvents(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
-  )
-}
-
-function canViewSession(session: NonNullable<SessionForAccess>, currentUser: CurrentUser) {
-  if (canViewAllSessionEvents(currentUser)) {
+  if (currentUser.role === 'ADMIN') {
     return true
   }
 
-  const isTeamMember = session.team?.members.some(
-    (member) => member.userId === currentUser.id,
+  return currentUser.role === 'MODERATOR' && session.moderatorId === currentUser.id
+}
+
+function canViewAllSessionEvents(currentUser: CurrentUser) {
+  return currentUser.role === 'ADMIN'
+}
+
+function canViewSession(
+  session: NonNullable<SessionForAccess>,
+  currentUser: CurrentUser,
+) {
+  if (
+    canViewAllSessionEvents(currentUser) ||
+    canManageSessionEvents(session, currentUser)
+  ) {
+    return true
+  }
+
+  const isTeamMember = Boolean(
+    session.team?.members.some((member) => member.userId === currentUser.id),
   )
 
   const isParticipant = session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
+    (participant) => participant.userId === currentUser.id,
   )
 
-  return Boolean(isTeamMember || isParticipant)
+  return isTeamMember || isParticipant
 }
 
 function assertCanViewSession(
@@ -60,7 +66,7 @@ function assertCanViewSession(
 }
 
 function assertCanManageSessionEvents(
-  session: { moderatorId: string | null },
+  session: { moderatorId: string },
   currentUser: CurrentUser,
 ) {
   if (!canManageSessionEvents(session, currentUser)) {

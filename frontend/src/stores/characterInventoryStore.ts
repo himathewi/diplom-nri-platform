@@ -1,12 +1,9 @@
 import { create } from 'zustand'
-import type { EquipmentSlot } from '../types/items'
 
 import {
   addItem as addItemRequest,
   updateItem as updateItemRequest,
   deleteItem as deleteItemRequest,
-  equipItem as equipItemRequest,
-  unequipItem as unequipItemRequest,
   type CreateItemInput,
   type UpdateItemInput,
 } from '../api/characterInventoryApi'
@@ -25,12 +22,6 @@ interface CharacterInventoryStore {
     item: UpdateItemInput
   ) => Promise<void>
   deleteItem: (characterId: string, itemId: string) => Promise<void>
-  equipItem: (
-    characterId: string,
-    itemId: string,
-    equippedSlot?: EquipmentSlot
-  ) => Promise<void>
-  unequipItem: (characterId: string, itemId: string) => Promise<void>
 }
 
 export const useCharacterInventoryStore = create<CharacterInventoryStore>(
@@ -97,50 +88,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
         set({
           error: getErrorMessage('Не удалось удалить предмет', error),
-          isLoading: false,
-        })
-
-        throw error
-      }
-    },
-
-    equipItem: async (characterId, itemId, equippedSlot) => {
-      set({ isLoading: true, error: null })
-
-      try {
-        await equipItemRequest(characterId, itemId, equippedSlot)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
-        set({ isLoading: false })
-      } catch (error) {
-        console.error('Failed to equip item:', error)
-
-        set({
-          error: getErrorMessage('Не удалось экипировать предмет', error),
-          isLoading: false,
-        })
-
-        throw error
-      }
-    },
-
-    unequipItem: async (characterId, itemId) => {
-      set({ isLoading: true, error: null })
-
-      try {
-        await unequipItemRequest(characterId, itemId)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
-        set({ isLoading: false })
-      } catch (error) {
-        console.error('Failed to unequip item:', error)
-
-        set({
-          error: getErrorMessage('Не удалось снять предмет', error),
           isLoading: false,
         })
 

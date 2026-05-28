@@ -13,8 +13,29 @@ export class UserEmailAlreadyExistsError extends Error {
 }
 
 export class UserForbiddenError extends Error {
-  constructor() {
-    super('You do not have permission to perform this action')
+  constructor(message = 'You do not have permission to perform this action') {
+    super(message)
     this.name = 'UserForbiddenError'
+  }
+}
+
+export class UserRoleUpdateForbiddenError extends UserForbiddenError {
+  constructor() {
+    super('Only admin can update user roles')
+    this.name = 'UserRoleUpdateForbiddenError'
+  }
+}
+
+export class UserAdminRoleProtectedError extends UserForbiddenError {
+  constructor() {
+    super('Admin role cannot be assigned or changed through users API')
+    this.name = 'UserAdminRoleProtectedError'
+  }
+}
+
+export class UserAdminDeleteForbiddenError extends UserForbiddenError {
+  constructor() {
+    super('Admin user cannot be deleted through users API')
+    this.name = 'UserAdminDeleteForbiddenError'
   }
 }

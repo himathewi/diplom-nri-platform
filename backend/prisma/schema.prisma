@@ -1,53 +1,24 @@
-// =========================
-// Prisma client генерация
-// =========================
 generator client {
   provider = "prisma-client-js"
 }
 
-// =========================
-// Подключение к базе данных
-// =========================
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// =========================
-// РОЛИ ПОЛЬЗОВАТЕЛЕЙ
-// =========================
 enum UserRole {
   ADMIN
   MODERATOR
   PARTICIPANT
-  EXPERT
 }
 
-// =========================
-// НАПРАВЛЕНИЯ СЦЕНАРИЕВ НРИ
-// =========================
-enum ScenarioDomain {
-  CROP_PRODUCTION
-  GREENHOUSE
-  LIVESTOCK
-  LOGISTICS
-  PROCESSING
-  ROBOTICS
-  TEAMBUILDING
-}
-
-// =========================
-// СТАТУСЫ ИГРОВОЙ СЕССИИ
-// =========================
 enum SessionStatus {
   PLANNED
   ACTIVE
   FINISHED
 }
 
-// =========================
-// ТИПЫ СОБЫТИЙ СЦЕНАРИЯ
-// =========================
 enum EventType {
   PRODUCTION_PROBLEM
   WEATHER_CHANGE
@@ -55,272 +26,53 @@ enum EventType {
   EQUIPMENT_FAILURE
   TEAM_CONFLICT
   INFORMATION_UPDATE
+  QUALITY_ISSUE
+  SAFETY_RISK
+  TASK_UPDATE
 }
 
-// =========================
-// ОСНОВНАЯ СУЩНОСТЬ ПЕРСОНАЖА
-// =========================
-model Character {
-  id String @id @default(uuid()) // Уникальный ID персонажа
-
-  // --- БАЗОВАЯ ИНФОРМАЦИЯ ---
-  name      String
-  race      String
-  className String
-  level     Int    @default(1)
-
-  description String?
-  alignment   String?
-  background  String?
-  avatarUrl   String?
-
-  // --- HP ---
-  currentHp   Int @default(0) // текущее здоровье
-  temporaryHp Int @default(0) // временные хп
-
-  // --- ОБЩИЕ ПОЛЯ ---
-  speed       Int     @default(30)
-  inspiration Boolean @default(false)
-
-  // --- МАГИЯ ---
-  spellcastingAbility String?
-
-  // --- DEATH SAVES ---
-  deathSaveSuccesses Int @default(0)
-  deathSaveFailures  Int @default(0)
-
-  // --- HIT DICE ---
-  hitDiceTotal Int? // общее количество костей (обычно = level)
-  hitDiceUsed  Int     @default(0) // сколько уже потрачено
-  hitDiceDice  String? // тип кости (например "1d8")
-
-  /// Для первой версии удобно хранить spell slots как Json
-  /// пример: [{ "level": 1, "total": 2, "used": 1 }]
-  spellSlots Json?
-
-  // --- СВЯЗЬ С ПОЛЬЗОВАТЕЛЕМ ---
-  // Необязательная связь, чтобы не ломать старую логику персонажей
-  userId String?
-
-  // --- СИСТЕМНЫЕ ПОЛЯ ---
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // --- СВЯЗИ СТАРОЙ ЛОГИКИ ---
-  stats   CharacterStats?
-  attacks CharacterAttack[]
-  spells  CharacterSpell[]
-  items   CharacterItem[]
-
-  // 🔥 НОВОЕ: история прироста HP
-  hpIncreases CharacterHpIncrease[]
-
-  // --- СВЯЗИ НОВОЙ ЛОГИКИ НРИ ---
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  sessionParticipants SessionParticipant[]
-  decisions           Decision[]
-
-  @@index([userId])
+enum ItemType {
+  TOOL
+  DOCUMENT
+  COMMUNICATION
+  SENSOR
+  SAMPLE
+  TRANSPORT
+  RESOURCE
+  OTHER
 }
 
-// =========================
-// СТАТЫ ПЕРСОНАЖА
-// =========================
-model CharacterStats {
-  id          String @id @default(uuid())
-  characterId String @unique
-
-  // Базовые характеристики
-  strength     Int
-  dexterity    Int
-  constitution Int
-  intelligence Int
-  wisdom       Int
-  charisma     Int
-
-  // Связь с персонажем
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+enum TaskType {
+  MAIN
+  SIDE
+  OPTIONAL
 }
 
-// =========================
-// АТАКИ ПЕРСОНАЖА
-// =========================
-model CharacterAttack {
-  id          String @id @default(uuid())
-  characterId String
-
-  name       String
-  attackType String?
-  ability    String?
-  proficient Boolean @default(false)
-
-  damageDice  String?
-  damageBonus Int?
-  damageType  String?
-  notes       String?
-
-  /// manual | item (откуда появилась атака)
-  source String?
-
-  /// если атака создана предметом
-  itemId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
+enum ScenarioSourceType {
+  TEMPLATE
+  CUSTOM
 }
 
-// =========================
-// ЗАКЛИНАНИЯ ПЕРСОНАЖА
-// =========================
-model CharacterSpell {
-  id          String @id @default(uuid())
-  characterId String
-
-  name          String
-  level         Int
-  school        String?
-  castingTime   String?
-  range         String?
-  components    String?
-  duration      String?
-  concentration Boolean @default(false)
-  ritual        Boolean @default(false)
-  description   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
+enum SessionTaskStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
-// =========================
-// ШАБЛОНЫ ПРЕДМЕТОВ (СПРАВОЧНИК)
-// =========================
-model ItemTemplate {
-  id          String  @id @default(uuid())
-  name        String
-  type        String?
-  slot        String?
-  description String?
-
-  /// Куда предмет можно экипировать.
-  /// Пример: ["mainHand", "offHand"]
-  allowedSlots Json?
-
-  /// Эффекты предмета.
-  /// Пример: [{ "type": "statBonus", "stat": "strength", "value": 2 }]
-  effects Json?
-
-  /// Конфиг оружия для generated attacks.
-  /// Пример:
-  /// {
-  ///   "attackType": "melee",
-  ///   "ability": "strength",
-  ///   "damageDice": "1d8",
-  ///   "damageBonus": 0,
-  ///   "damageType": "slashing"
-  /// }
-  weaponConfig Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  characterItems CharacterItem[]
+enum InvitationType {
+  LINK
+  CODE
 }
 
-// =========================
-// ПРЕДМЕТЫ У ПЕРСОНАЖА
-// =========================
-model CharacterItem {
-  id             String  @id @default(uuid())
-  characterId    String
-  itemTemplateId String?
-
-  /// Снапшот имени.
-  /// Для шаблонного предмета может копировать ItemTemplate.name.
-  /// Для кастомного предмета является основным названием.
-  nameSnapshot String
-
-  quantity Int @default(1)
-
-  /// Факт экипировки.
-  /// Саму экипировку делаем только через отдельный equip endpoint.
-  isEquipped Boolean @default(false)
-
-  /// Текущий слот, куда предмет экипирован.
-  /// Пока НЕ переименовываем в equippedSlot, чтобы не смешивать задачи.
-  equippedSlot String?
-
-  /// Обычная текстовая заметка игрока.
-  /// Больше не используем как JSON-контейнер игровых правил.
-  notes String?
-
-  /// Кастомный тип конкретного предмета.
-  /// Если null — берём type из ItemTemplate.
-  type String?
-
-  /// Кастомные допустимые слоты конкретного предмета.
-  /// Если null — берём allowedSlots из ItemTemplate.
-  /// Пример: ["mainHand", "offHand"]
-  allowedSlots Json?
-
-  /// Кастомные эффекты конкретного предмета.
-  /// Если null — берём effects из ItemTemplate.
-  effects Json?
-
-  /// Кастомный weaponConfig конкретного предмета.
-  /// Если null — берём weaponConfig из ItemTemplate.
-  weaponConfig Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  character    Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  itemTemplate ItemTemplate? @relation(fields: [itemTemplateId], references: [id], onDelete: SetNull)
-
-  @@index([characterId])
-  @@index([itemTemplateId])
-  @@unique([characterId, equippedSlot])
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }
 
-// =========================
-// 🔥 НОВАЯ ТАБЛИЦА: ИСТОРИЯ HP
-// =========================
-model CharacterHpIncrease {
-  id String @id @default(uuid())
-
-  characterId String
-  level       Int // уровень, на котором был прирост
-
-  /// fixed | roll
-  mode String
-
-  /// фактическая прибавка HP (например 5 или 7)
-  value Int
-
-  /// тип кости (например "1d8")
-  dice String
-
-  /// если был бросок — сохраняем результат
-  rolledValue Int?
-
-  createdAt DateTime @default(now())
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@index([characterId])
-  @@unique([characterId, level])
-}
-
-// =========================
-// ПОЛЬЗОВАТЕЛИ СИСТЕМЫ
-// =========================
 model User {
   id       String   @id @default(uuid())
   email    String   @unique
@@ -328,19 +80,85 @@ model User {
   name     String
   role     UserRole @default(PARTICIPANT)
 
-  characters        Character[]
-  createdScenarios  Scenario[]    @relation("ScenarioCreator")
-  moderatedSessions GameSession[] @relation("SessionModerator")
-  teamMembers       TeamMember[]
-  decisions         Decision[]
+  characters           Character[]
+  createdScenarios     Scenario[]           @relation("ScenarioCreator")
+  createdScenarioTasks ScenarioTask[]       @relation("ScenarioTaskCreator")
+  createdTaskTemplates TaskTemplate[]       @relation("TaskTemplateCreator")
+  createdItems         Item[]               @relation("ItemCreator")
+  createdRoleClasses   RoleClass[]          @relation("RoleClassCreator")
+  moderatedSessions    GameSession[]        @relation("SessionModerator")
+  teamMembers          TeamMember[]
+  sessionParticipants  SessionParticipant[]
+  decisions            Decision[]           @relation("DecisionAuthor")
+  sentInvitations      SessionInvitation[]  @relation("InvitationSender")
+  receivedInvitations  SessionInvitation[]  @relation("InvitationUser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// КОМАНДЫ УЧАСТНИКОВ
-// =========================
+model RoleClass {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  createdById String?
+  isPublic    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdBy User? @relation("RoleClassCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  characters      Character[]
+  allowedSessions SessionAllowedRoleClass[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
+}
+
+model Character {
+  id String @id @default(uuid())
+
+  userId      String
+  roleClassId String?
+
+  name                 String
+  description          String?
+  professionalFunction String?
+
+  fatigueLimit   Int @default(3)
+  currentFatigue Int @default(0)
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleClass RoleClass? @relation(fields: [roleClassId], references: [id], onDelete: SetNull)
+
+  stats               CharacterStats?
+  sessionParticipants SessionParticipant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([roleClassId])
+}
+
+model CharacterStats {
+  id          String @id @default(uuid())
+  characterId String @unique
+
+  strength     Int
+  dexterity    Int
+  constitution Int
+  intelligence Int
+  wisdom       Int
+  charisma     Int
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+}
+
 model Team {
   id          String  @id @default(uuid())
   name        String
@@ -354,9 +172,6 @@ model Team {
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// УЧАСТНИКИ КОМАНДЫ
-// =========================
 model TeamMember {
   id         String  @id @default(uuid())
   teamId     String
@@ -373,19 +188,37 @@ model TeamMember {
   @@index([userId])
 }
 
-// =========================
-// СЦЕНАРИИ НАСТОЛЬНО-РОЛЕВЫХ ИГР
-// =========================
-model Scenario {
-  id          String         @id @default(uuid())
-  title       String
-  description String
-  domain      ScenarioDomain
-  goal        String
-  difficulty  Int            @default(1)
+model ScenarioDirection {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true)
 
-  createdById String
-  createdBy   User @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  scenarios     Scenario[]
+  taskTemplates TaskTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Scenario {
+  id                String             @id @default(uuid())
+  title             String
+  description       String
+  goal              String
+  difficulty        Int                @default(1)
+  sourceType        ScenarioSourceType @default(CUSTOM)
+  directionId       String?
+  createdById       String
+  basedOnScenarioId String?
+  isPublicTemplate  Boolean            @default(false)
+
+  direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
+  createdBy User               @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  basedOnScenario Scenario?  @relation("ScenarioCopies", fields: [basedOnScenarioId], references: [id], onDelete: SetNull)
+  copiedScenarios Scenario[] @relation("ScenarioCopies")
 
   tasks    ScenarioTask[]
   sessions GameSession[]
@@ -393,30 +226,119 @@ model Scenario {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([directionId])
   @@index([createdById])
+  @@index([basedOnScenarioId])
+  @@index([sourceType])
+  @@index([isPublicTemplate])
 }
 
-// =========================
-// ЗАДАЧИ СЦЕНАРИЯ
-// =========================
 model ScenarioTask {
-  id             String  @id @default(uuid())
-  scenarioId     String
-  title          String
-  description    String
-  taskType       String
-  expectedResult String?
+  id          String   @id @default(uuid())
+  scenarioId  String
+  title       String
+  description String
+  taskType    TaskType @default(MAIN)
 
-  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  createdById      String?
+  sourceTemplateId String?
+
+  difficulty         Int     @default(1)
+  fatigueCost        Int     @default(0)
+  expectedResult     String?
+  moderatorNotes     String?
+  isVisibleByDefault Boolean @default(false)
+
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true)
+
+  scenario       Scenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  createdBy      User?         @relation("ScenarioTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceTemplate TaskTemplate? @relation("ScenarioTaskSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+
+  sessionTasks  SessionTask[]
+  requiredItems ScenarioTaskRequiredItem[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([scenarioId])
+  @@index([createdById])
+  @@index([sourceTemplateId])
+  @@index([isPublic])
+  @@index([isActive])
 }
 
-// =========================
-// ИГРОВЫЕ СЕССИИ
-// =========================
+model ScenarioTaskRequiredItem {
+  id             String @id @default(uuid())
+  scenarioTaskId String
+  itemId         String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  scenarioTask ScenarioTask @relation(fields: [scenarioTaskId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scenarioTaskId, itemId])
+  @@index([scenarioTaskId])
+  @@index([itemId])
+}
+
+model TaskTemplate {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  taskType    TaskType @default(MAIN)
+
+  directionId String?
+  createdById String?
+
+  difficulty     Int     @default(1)
+  fatigueCost    Int     @default(0)
+  expectedResult String?
+  moderatorNotes String?
+  isPublic       Boolean @default(false)
+  isActive       Boolean @default(true)
+
+  direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
+  createdBy User?              @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  requiredItems TaskTemplateRequiredItem[]
+  scenarioTasks ScenarioTask[]             @relation("ScenarioTaskSourceTemplate")
+  sessionTasks  SessionTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([directionId])
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
+}
+
+model TaskTemplateRequiredItem {
+  id             String @id @default(uuid())
+  taskTemplateId String
+  itemId         String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  taskTemplate TaskTemplate @relation(fields: [taskTemplateId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskTemplateId, itemId])
+  @@index([taskTemplateId])
+  @@index([itemId])
+}
+
 model GameSession {
   id          String        @id @default(uuid())
   scenarioId  String
@@ -428,43 +350,210 @@ model GameSession {
   team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   moderator User     @relation("SessionModerator", fields: [moderatorId], references: [id], onDelete: Cascade)
 
-  participants SessionParticipant[]
-  events       SessionEvent[]
-  decisions    Decision[]
-  metrics      TeamMetric?
-  report       SessionReport?
+  participants       SessionParticipant[]
+  invitations        SessionInvitation[]
+  events             SessionEvent[]
+  decisions          Decision[]
+  tasks              SessionTask[]
+  metrics            TeamMetric?
+  report             SessionReport?
+  allowedRoleClasses SessionAllowedRoleClass[]
+  allowedItems       SessionAllowedItem[]
 
   startedAt  DateTime?
   finishedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([scenarioId])
   @@index([teamId])
   @@index([moderatorId])
 }
 
-// =========================
-// УЧАСТНИКИ ИГРОВОЙ СЕССИИ
-// =========================
 model SessionParticipant {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   sessionId   String
-  characterId String
+  userId      String
+  characterId String?
 
   session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  character Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character?  @relation(fields: [characterId], references: [id], onDelete: SetNull)
+
+  items     ParticipantItem[]
+  decisions Decision[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([sessionId, userId])
   @@unique([sessionId, characterId])
   @@index([sessionId])
+  @@index([userId])
   @@index([characterId])
 }
 
-// =========================
-// СОБЫТИЯ МОДЕРАТОРА ВНУТРИ СЕССИИ
-// =========================
+model SessionInvitation {
+  id            String  @id @default(uuid())
+  sessionId     String
+  invitedById   String
+  invitedUserId String?
+
+  type          InvitationType
+  status        InvitationStatus @default(PENDING)
+  tokenHash     String?          @unique
+  codeHash      String?          @unique
+  attemptsCount Int              @default(0)
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  session     GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  invitedBy   User        @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedUser User?       @relation("InvitationUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([invitedById])
+  @@index([invitedUserId])
+}
+
+model SessionAllowedRoleClass {
+  id          String @id @default(uuid())
+  sessionId   String
+  roleClassId String
+
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roleClass RoleClass   @relation(fields: [roleClassId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, roleClassId])
+  @@index([sessionId])
+  @@index([roleClassId])
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  name        String
+  type        ItemType @default(OTHER)
+  description String?
+
+  createdById String?
+  isPublic    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdBy User? @relation("ItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  allowedSessions  SessionAllowedItem[]
+  participantItems ParticipantItem[]
+
+  requiredByScenarioTasks ScenarioTaskRequiredItem[]
+  requiredByTaskTemplates TaskTemplateRequiredItem[]
+  requiredBySessionTasks  SessionTaskRequiredItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([isActive])
+}
+
+model SessionAllowedItem {
+  id        String @id @default(uuid())
+  sessionId String
+  itemId    String
+
+  quantity  Int     @default(1)
+  isVisible Boolean @default(true)
+  notes     String?
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item    Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, itemId])
+  @@index([sessionId])
+  @@index([itemId])
+}
+
+model ParticipantItem {
+  id                   String  @id @default(uuid())
+  sessionParticipantId String
+  itemId               String?
+
+  nameSnapshot String
+  quantity     Int     @default(1)
+  notes        String?
+  isUsed       Boolean @default(false)
+
+  sessionParticipant SessionParticipant @relation(fields: [sessionParticipantId], references: [id], onDelete: Cascade)
+  item               Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionParticipantId])
+  @@index([itemId])
+}
+
+model SessionTask {
+  id String @id @default(uuid())
+
+  sessionId        String
+  scenarioTaskId   String?
+  sourceTemplateId String?
+
+  title                      String
+  descriptionForModerator    String?
+  descriptionForParticipants String?
+  taskType                   TaskType          @default(MAIN)
+  status                     SessionTaskStatus @default(PLANNED)
+
+  difficulty              Int     @default(1)
+  fatigueCost             Int     @default(0)
+  isVisibleToParticipants Boolean @default(false)
+  result                  String?
+
+  session        GameSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  scenarioTask   ScenarioTask? @relation(fields: [scenarioTaskId], references: [id], onDelete: SetNull)
+  sourceTemplate TaskTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+
+  requiredItems SessionTaskRequiredItem[]
+  decisions     Decision[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([sessionId])
+  @@index([scenarioTaskId])
+  @@index([sourceTemplateId])
+}
+
+model SessionTaskRequiredItem {
+  id            String @id @default(uuid())
+  sessionTaskId String
+  itemId        String
+
+  quantity Int     @default(1)
+  notes    String?
+
+  sessionTask SessionTask @relation(fields: [sessionTaskId], references: [id], onDelete: Cascade)
+  item        Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionTaskId, itemId])
+  @@index([sessionTaskId])
+  @@index([itemId])
+}
+
 model SessionEvent {
   id          String    @id @default(uuid())
   sessionId   String
@@ -477,51 +566,49 @@ model SessionEvent {
   decisions Decision[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([sessionId])
 }
 
-// =========================
-// РЕШЕНИЯ УЧАСТНИКОВ
-// =========================
 model Decision {
-  id          String  @id @default(uuid())
-  sessionId   String
-  characterId String?
-  userId      String?
-  eventId     String?
+  id                   String  @id @default(uuid())
+  sessionId            String
+  sessionParticipantId String?
+  userId               String?
+  eventId              String?
+  sessionTaskId        String?
 
   description      String
   result           String?
   moderatorComment String?
   score            Int?
 
-  session   GameSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  character Character?    @relation(fields: [characterId], references: [id], onDelete: SetNull)
-  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  event     SessionEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  session            GameSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionParticipant SessionParticipant? @relation(fields: [sessionParticipantId], references: [id], onDelete: SetNull)
+  user               User?               @relation("DecisionAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  event              SessionEvent?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  sessionTask        SessionTask?        @relation(fields: [sessionTaskId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([sessionId])
-  @@index([characterId])
+  @@index([sessionParticipantId])
   @@index([userId])
   @@index([eventId])
+  @@index([sessionTaskId])
 }
 
-// =========================
-// МЕТРИКИ КОМАНДНОГО ВЗАИМОДЕЙСТВИЯ
-// =========================
 model TeamMetric {
   id        String @id @default(uuid())
   sessionId String @unique
 
-  communicationScore      Int @default(0)
-  decisionSpeedScore      Int @default(0)
-  roleDistributionScore   Int @default(0)
-  conflictResolutionScore Int @default(0)
-  leadershipScore         Int @default(0)
+  communicationScore      Int     @default(0)
+  decisionSpeedScore      Int     @default(0)
+  roleDistributionScore   Int     @default(0)
+  conflictResolutionScore Int     @default(0)
+  leadershipScore         Int     @default(0)
   comment                 String?
 
   session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -530,9 +617,6 @@ model TeamMetric {
   updatedAt DateTime @updatedAt
 }
 
-// =========================
-// ИТОГОВЫЙ ОТЧЁТ ПО СЕССИИ
-// =========================
 model SessionReport {
   id        String @id @default(uuid())
   sessionId String @unique

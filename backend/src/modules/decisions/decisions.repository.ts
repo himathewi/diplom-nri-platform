@@ -14,6 +14,23 @@ const userSelect = {
   updatedAt: true,
 }
 
+const characterInclude = {
+  user: {
+    select: userSelect,
+  },
+  roleClass: true,
+  stats: true,
+}
+
+const participantInclude = {
+  user: {
+    select: userSelect,
+  },
+  character: {
+    include: characterInclude,
+  },
+}
+
 const sessionInclude = {
   team: {
     include: {
@@ -30,14 +47,17 @@ const sessionInclude = {
     select: userSelect,
   },
   participants: {
+    include: participantInclude,
+  },
+}
+
+const sessionTaskInclude = {
+  requiredItems: {
     include: {
-      character: {
-        include: {
-          user: {
-            select: userSelect,
-          },
-        },
-      },
+      item: true,
+    },
+    orderBy: {
+      createdAt: 'asc' as const,
     },
   },
 }
@@ -46,17 +66,16 @@ const decisionInclude = {
   session: {
     include: sessionInclude,
   },
-  character: {
-    include: {
-      user: {
-        select: userSelect,
-      },
-    },
+  sessionParticipant: {
+    include: participantInclude,
   },
   user: {
     select: userSelect,
   },
   event: true,
+  sessionTask: {
+    include: sessionTaskInclude,
+  },
 }
 
 export const decisionsRepository = {
@@ -77,27 +96,33 @@ export const decisionsRepository = {
     })
   },
 
-  findCharacterById(characterId: string) {
-    return prisma.character.findUnique({
+  findSessionTaskById(sessionTaskId: string) {
+    return prisma.sessionTask.findUnique({
       where: {
-        id: characterId,
+        id: sessionTaskId,
       },
-      include: {
-        user: {
-          select: userSelect,
-        },
-      },
+      include: sessionTaskInclude,
     })
   },
 
-  findParticipant(sessionId: string, characterId: string) {
+  findParticipantById(participantId: string) {
     return prisma.sessionParticipant.findUnique({
       where: {
-        sessionId_characterId: {
+        id: participantId,
+      },
+      include: participantInclude,
+    })
+  },
+
+  findParticipantBySessionAndUser(sessionId: string, userId: string) {
+    return prisma.sessionParticipant.findUnique({
+      where: {
+        sessionId_userId: {
           sessionId,
-          characterId,
+          userId,
         },
       },
+      include: participantInclude,
     })
   },
 
@@ -122,13 +147,19 @@ export const decisionsRepository = {
     })
   },
 
-  create(sessionId: string, userId: string, data: CreateDecisionInput) {
+  create(
+    sessionId: string,
+    userId: string,
+    data: CreateDecisionInput,
+    sessionParticipantId: string | null,
+  ) {
     return prisma.decision.create({
       data: {
         sessionId,
         userId,
-        characterId: data.characterId ?? null,
+        sessionParticipantId,
         eventId: data.eventId ?? null,
+        sessionTaskId: data.sessionTaskId ?? null,
         description: data.description,
         result: data.result ?? null,
       },
@@ -136,14 +167,19 @@ export const decisionsRepository = {
     })
   },
 
-  update(decisionId: string, data: UpdateDecisionInput) {
+  update(
+    decisionId: string,
+    data: UpdateDecisionInput,
+    sessionParticipantId?: string | null,
+  ) {
     return prisma.decision.update({
       where: {
         id: decisionId,
       },
       data: {
-        characterId: data.characterId,
+        sessionParticipantId,
         eventId: data.eventId,
+        sessionTaskId: data.sessionTaskId,
         description: data.description,
         result: data.result,
       },

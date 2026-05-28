@@ -1,13 +1,7 @@
+import { EventType } from '@prisma/client'
 import { z } from 'zod'
 
-export const eventTypeSchema = z.enum([
-  'PRODUCTION_PROBLEM',
-  'WEATHER_CHANGE',
-  'RESOURCE_LIMIT',
-  'EQUIPMENT_FAILURE',
-  'TEAM_CONFLICT',
-  'INFORMATION_UPDATE',
-])
+export const eventTypeSchema = z.nativeEnum(EventType)
 
 export const sessionEventParamsSchema = z
   .object({
@@ -23,18 +17,32 @@ export const sessionEventSessionParamsSchema = z
 
 export const createSessionEventSchema = z
   .object({
-    title: z.string().min(1),
-    description: z.string().min(1),
+    title: z.string().trim().min(1, 'Event title is required'),
+    description: z.string().trim().min(1, 'Event description is required'),
     eventType: eventTypeSchema,
-    impact: z.string().optional().nullable(),
+    impact: z.string().trim().nullable().optional(),
   })
   .strict()
 
-export const updateSessionEventSchema = createSessionEventSchema.partial().strict()
+export const updateSessionEventSchema = z
+  .object({
+    title: z.string().trim().min(1, 'Event title is required').optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Event description is required')
+      .optional(),
+    eventType: eventTypeSchema.optional(),
+    impact: z.string().trim().nullable().optional(),
+  })
+  .strict()
 
 export type SessionEventParamsInput = z.infer<typeof sessionEventParamsSchema>
+
 export type SessionEventSessionParamsInput = z.infer<
   typeof sessionEventSessionParamsSchema
 >
+
 export type CreateSessionEventInput = z.infer<typeof createSessionEventSchema>
+
 export type UpdateSessionEventInput = z.infer<typeof updateSessionEventSchema>

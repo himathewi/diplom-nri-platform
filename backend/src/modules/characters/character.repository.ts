@@ -1,101 +1,87 @@
 import { prisma } from '../../lib/prisma'
+
 import type {
-  CreateCharacterInput,
+  SessionCharacterCreationInput,
   UpdateCharacterInput,
+  UpdateCharacterStatsInput,
 } from './character.schemas'
 
-// =========================================================
-// Select / include-конфиги
-// =========================================================
+import {
+  characterProfileSelect,
+  roleClassSelect,
+} from './character.mappers'
 
-// Базовый профиль персонажа.
-// Используется для:
-// GET /characters
-// GET /characters/:id
-// POST /characters
-// PATCH /characters/:id
-//
-// Важно:
-// здесь подтягиваем только base stats для карточек/форм.
-// Полный лист должен идти через GET /characters/:id/sheet.
-const characterProfileSelect = {
+const sessionScenarioSelect = {
   id: true,
-  userId: true,
-
-  name: true,
-  race: true,
-  className: true,
-  level: true,
-
+  title: true,
   description: true,
-  alignment: true,
-  background: true,
-  avatarUrl: true,
-
-  currentHp: true,
-  temporaryHp: true,
-  speed: true,
-  inspiration: true,
-  spellcastingAbility: true,
-
-  stats: {
+  goal: true,
+  difficulty: true,
+  direction: {
     select: {
-      strength: true,
-      dexterity: true,
-      constitution: true,
-      intelligence: true,
-      wisdom: true,
-      charisma: true,
-    },
-  },
-
-  createdAt: true,
-  updatedAt: true,
-} as const
-
-// Расширенный include для сборки CharacterSheet.
-// Используется только там, где нужен полный sheet.
-const characterSheetInclude = {
-  stats: true,
-  attacks: true,
-  spells: true,
-  items: {
-    include: {
-      itemTemplate: true,
-    },
-  },
-  hpIncreases: {
-    orderBy: {
-      level: 'asc',
+      id: true,
+      code: true,
+      name: true,
+      description: true,
     },
   },
 } as const
 
-// =========================================================
-// Внутренние типы repository
-// =========================================================
+type CreateCharacterForSessionRepositoryInput =
+  SessionCharacterCreationInput & {
+    userId: string
+    sessionId: string
+    fatigueLimit: number
+  }
 
-type CreateCharacterRepositoryInput = CreateCharacterInput & {
-  userId: string
+type UpdateCharacterRepositoryInput = UpdateCharacterInput & {
+  fatigueLimit?: number
+}
 
-  currentHp: number
-  temporaryHp: number
-  inspiration: boolean
+function getDefaultStats() {
+  return {
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    intelligence: 10,
+    wisdom: 10,
+    charisma: 10,
+  }
+}
 
-  deathSaveSuccesses: number
-  deathSaveFailures: number
+function buildStatsCreateData(
+  baseStats?: SessionCharacterCreationInput['baseStats'],
+) {
+  return {
+    ...getDefaultStats(),
+    ...(baseStats ?? {}),
+  }
+}
 
-  hitDiceTotal: number
-  hitDiceUsed: number
-  hitDiceDice: string
+function buildStatsUpdateData(baseStats: UpdateCharacterStatsInput) {
+  return {
+    ...(baseStats.strength !== undefined && {
+      strength: baseStats.strength,
+    }),
+    ...(baseStats.dexterity !== undefined && {
+      dexterity: baseStats.dexterity,
+    }),
+    ...(baseStats.constitution !== undefined && {
+      constitution: baseStats.constitution,
+    }),
+    ...(baseStats.intelligence !== undefined && {
+      intelligence: baseStats.intelligence,
+    }),
+    ...(baseStats.wisdom !== undefined && {
+      wisdom: baseStats.wisdom,
+    }),
+    ...(baseStats.charisma !== undefined && {
+      charisma: baseStats.charisma,
+    }),
+  }
 }
 
 export const characterRepository = {
-  // =========================================================
-  // Characters
-  // =========================================================
-
-  // Получить список базовых профилей персонажей.
   findAll() {
     return prisma.character.findMany({
       orderBy: {
@@ -117,132 +103,249 @@ export const characterRepository = {
     })
   },
 
-  // Получить базовый профиль персонажа по ID.
+  findAllForModerator(moderatorId: string) {
+    return prisma.character.findMany({
+      where: {
+        sessionParticipants: {
+          some: {
+            session: {
+              moderatorId,
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: characterProfileSelect,
+    })
+  },
+
   findById(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: characterProfileSelect,
     })
   },
 
   findAccessById(id: string) {
     return prisma.character.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: {
         id: true,
         userId: true,
-      },
-    })
-  },
-
-  // Получить персонажа с полным набором связанных сущностей.
-  // Это НЕ готовый sheet. Это только данные для CharacterSheetService.
-  findByIdForSheet(id: string) {
-    return prisma.character.findUnique({
-      where: { id },
-      include: characterSheetInclude,
-    })
-  },
-
-  // Создать нового персонажа.
-  //
-  // Важно:
-  // - поля spellcastingAbility / death saves / hit dice / spellSlots
-  //   записываются в Character, а не в CharacterStats;
-  // - stats создаются отдельно как relation create;
-  // - наружу возвращаем только базовый профиль.
-  create(data: CreateCharacterRepositoryInput) {
-    return prisma.character.create({
-      data: {
-        name: data.name,
-        userId: data.userId,
-        race: data.race,
-        className: data.className,
-        level: data.level ?? 1,
-
-        description: data.description ?? null,
-        alignment: data.alignment ?? null,
-        background: data.background ?? null,
-
-        avatarUrl:
-          typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
-            ? data.avatarUrl
-            : null,
-
-        currentHp: data.currentHp,
-        temporaryHp: data.temporaryHp,
-        speed: data.speed ?? 30,
-        inspiration: data.inspiration,
-
-        spellcastingAbility: data.spellcastingAbility ?? null,
-
-        deathSaveSuccesses: data.deathSaveSuccesses,
-        deathSaveFailures: data.deathSaveFailures,
-
-        hitDiceTotal: data.hitDiceTotal,
-        hitDiceUsed: data.hitDiceUsed,
-        hitDiceDice: data.hitDiceDice,
-
-        spellSlots: [],
-
-        stats: {
-          create: {
-            strength: data.baseStats?.strength ?? 10,
-            dexterity: data.baseStats?.dexterity ?? 10,
-            constitution: data.baseStats?.constitution ?? 10,
-            intelligence: data.baseStats?.intelligence ?? 10,
-            wisdom: data.baseStats?.wisdom ?? 10,
-            charisma: data.baseStats?.charisma ?? 10,
+        sessionParticipants: {
+          select: {
+            session: {
+              select: {
+                moderatorId: true,
+              },
+            },
           },
         },
       },
-      select: characterProfileSelect,
     })
   },
 
-  // Обновить только базовые поля персонажа.
-  //
-  // HP / death saves / hit dice / inspiration / stats / attacks / spells /
-  // inventory здесь не меняются. Для них есть отдельные modules/actions.
-  update(id: string, data: UpdateCharacterInput) {
-    return prisma.character.update({
-      where: { id },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.race !== undefined && { race: data.race }),
-        ...(data.className !== undefined && { className: data.className }),
+  findByIdForRules(id: string) {
+    return prisma.character.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        userId: true,
+        roleClassId: true,
+        fatigueLimit: true,
+        currentFatigue: true,
+        stats: true,
+        sessionParticipants: {
+          select: {
+            sessionId: true,
+          },
+        },
+      },
+    })
+  },
 
+  findRoleClassById(roleClassId: string) {
+    return prisma.roleClass.findUnique({
+      where: {
+        id: roleClassId,
+      },
+      select: roleClassSelect,
+    })
+  },
+
+  findSessionForCharacterOptions(sessionId: string) {
+    return prisma.gameSession.findUnique({
+      where: {
+        id: sessionId,
+      },
+      select: {
+        id: true,
+        status: true,
+        moderatorId: true,
+        teamId: true,
+        scenario: {
+          select: sessionScenarioSelect,
+        },
+        team: {
+          select: {
+            id: true,
+            members: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+        participants: {
+          select: {
+            userId: true,
+            characterId: true,
+          },
+        },
+        allowedRoleClasses: {
+          include: {
+            roleClass: {
+              select: roleClassSelect,
+            },
+          },
+        },
+        allowedItems: {
+          include: {
+            item: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    })
+  },
+
+  findSessionParticipantBySessionAndUser(sessionId: string, userId: string) {
+    return prisma.sessionParticipant.findUnique({
+      where: {
+        sessionId_userId: {
+          sessionId,
+          userId,
+        },
+      },
+    })
+  },
+
+  countAllowedRoleClassForSessions(sessionIds: string[], roleClassId: string) {
+    return prisma.sessionAllowedRoleClass.count({
+      where: {
+        sessionId: {
+          in: sessionIds,
+        },
+        roleClassId,
+      },
+    })
+  },
+
+  createForSession(data: CreateCharacterForSessionRepositoryInput) {
+    return prisma.$transaction(async (tx) => {
+      const character = await tx.character.create({
+        data: {
+          name: data.name,
+          userId: data.userId,
+          roleClassId: data.roleClassId,
+          description: data.description ?? null,
+          professionalFunction: data.professionalFunction ?? null,
+          fatigueLimit: data.fatigueLimit,
+          currentFatigue: 0,
+          stats: {
+            create: buildStatsCreateData(data.baseStats),
+          },
+        },
+        select: characterProfileSelect,
+      })
+
+      const existingParticipant = await tx.sessionParticipant.findUnique({
+        where: {
+          sessionId_userId: {
+            sessionId: data.sessionId,
+            userId: data.userId,
+          },
+        },
+      })
+
+      if (existingParticipant) {
+        await tx.sessionParticipant.update({
+          where: {
+            id: existingParticipant.id,
+          },
+          data: {
+            characterId: character.id,
+          },
+        })
+      } else {
+        await tx.sessionParticipant.create({
+          data: {
+            sessionId: data.sessionId,
+            userId: data.userId,
+            characterId: character.id,
+          },
+        })
+      }
+
+      return character
+    })
+  },
+
+  update(id: string, data: UpdateCharacterRepositoryInput) {
+    return prisma.character.update({
+      where: {
+        id,
+      },
+      data: {
+        ...(data.name !== undefined && {
+          name: data.name,
+        }),
+        ...(data.roleClassId !== undefined && {
+          roleClassId: data.roleClassId,
+        }),
         ...(data.description !== undefined && {
           description: data.description,
         }),
-        ...(data.alignment !== undefined && {
-          alignment: data.alignment,
+        ...(data.professionalFunction !== undefined && {
+          professionalFunction: data.professionalFunction,
         }),
-        ...(data.background !== undefined && {
-          background: data.background,
+        ...(data.fatigueLimit !== undefined && {
+          fatigueLimit: data.fatigueLimit,
         }),
-
-        ...(data.avatarUrl !== undefined && {
-          avatarUrl:
-            typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
-              ? data.avatarUrl
-              : null,
+        ...(data.currentFatigue !== undefined && {
+          currentFatigue: data.currentFatigue,
         }),
-
-        ...(data.speed !== undefined && { speed: data.speed }),
-
-        ...(data.spellcastingAbility !== undefined && {
-          spellcastingAbility: data.spellcastingAbility,
+        ...(data.baseStats !== undefined && {
+          stats: {
+            upsert: {
+              create: {
+                ...getDefaultStats(),
+                ...data.baseStats,
+              },
+              update: buildStatsUpdateData(data.baseStats),
+            },
+          },
         }),
       },
       select: characterProfileSelect,
     })
   },
 
-  // Удалить персонажа.
   delete(id: string) {
     return prisma.character.delete({
-      where: { id },
+      where: {
+        id,
+      },
     })
   },
 }

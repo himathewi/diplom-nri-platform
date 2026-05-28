@@ -11,23 +11,19 @@ import { usersRoutes } from "./modules/users/users.routes";
 import { teamsRoutes } from "./modules/teams/teams.routes";
 import { scenariosRoutes } from "./modules/scenarios/scenarios.routes";
 import { sessionsRoutes } from "./modules/sessions/sessions.routes";
+import { invitationsRoutes } from './modules/invitations/invitations.routes'
 import { sessionEventsRoutes } from "./modules/session-events/session-events.routes";
 import { decisionsRoutes } from "./modules/decisions/decisions.routes";
-import { teamMetricsRoutes } from './modules/team-metrics/team-metrics.routes'
-import { reportsRoutes } from './modules/reports/reports.routes'
+import { teamMetricsRoutes } from "./modules/team-metrics/team-metrics.routes";
+import { reportsRoutes } from "./modules/reports/reports.routes";
 
+import { characterSheetRepository } from './modules/character-sheet/character-sheet.repository'
 import { characterRoutes } from "./modules/characters/character.routes";
-import { characterHpRoutes } from "./modules/character-hp/character-hp.routes";
 import { characterStatsRoutes } from "./modules/character-stats/character-stats.routes";
-import { characterAttacksRoutes } from "./modules/character-attacks/character-attacks.routes";
-import { characterSpellsRoutes } from "./modules/character-spells/character-spells.routes";
-import { characterInventoryRoutes } from "./modules/character-inventory/character-inventory.routes";
-
-import { characterRepository } from "./modules/characters/character.repository";
-import { characterAttacksRepository } from "./modules/character-attacks/character-attacks.repository";
-import { characterSpellsRepository } from "./modules/character-spells/character-spells.repository";
-import { characterStatsRepository as characterStatsDbRepository } from "./modules/character-stats/character-stats.repository";
-import { characterInventoryRepository as characterInventoryDbRepository } from "./modules/character-inventory/character-inventory.repository";
+import { roleClassesRoutes } from "./modules/role-classes/role-classes.routes";
+import { itemsRoutes } from "./modules/items/items.routes";
+import { taskTemplatesRoutes } from "./modules/task-templates/task-templates.routes";
+import { sessionTasksRoutes } from "./modules/session-tasks/session-tasks.routes";
 
 import { characterSheetRoutes } from "./modules/character-sheet/character-sheet.routes";
 import { CharacterSheetService } from "./modules/character-sheet/character-sheet.service";
@@ -96,58 +92,32 @@ export async function buildApp() {
     };
   });
 
-  const characterForSheetRepository = {
-    findByIdForSheet: (id: string) => characterRepository.findByIdForSheet(id)
-  };
-
-  const characterStatsRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterStatsDbRepository.findStatsByCharacterId(characterId)
-  };
-
-  const characterAttackRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterAttacksRepository.findAttacksByCharacterId(characterId)
-  };
-
-  const characterSpellRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterSpellsRepository.findSpellsByCharacterId(characterId)
-  };
-
-  const characterItemRepository = {
-    findByCharacterId: (characterId: string) =>
-      characterInventoryDbRepository.findByCharacterId(characterId)
-  };
-
   const characterSheetService = new CharacterSheetService(
-    characterForSheetRepository,
-    characterStatsRepository,
-    characterAttackRepository,
-    characterSpellRepository,
-    characterItemRepository
-  );
+    characterSheetRepository,
+  )
 
   await app.register(authRoutes);
   await app.register(usersRoutes);
   await app.register(teamsRoutes);
   await app.register(scenariosRoutes);
   await app.register(sessionsRoutes);
+  await app.register(invitationsRoutes)
   await app.register(sessionEventsRoutes);
   await app.register(decisionsRoutes);
   await app.register(teamMetricsRoutes);
   await app.register(reportsRoutes);
 
+  await app.register(roleClassesRoutes);
+  await app.register(itemsRoutes);
+  await app.register(taskTemplatesRoutes);
+  await app.register(sessionTasksRoutes);
+
+  await app.register(characterStatsRoutes);
+  await app.register(characterRoutes);
+
   await app.register(characterSheetRoutes, {
     characterSheetService
   });
-
-  await app.register(characterHpRoutes);
-  await app.register(characterStatsRoutes);
-  await app.register(characterAttacksRoutes);
-  await app.register(characterSpellsRoutes);
-  await app.register(characterInventoryRoutes);
-  await app.register(characterRoutes);
 
   return app;
 }

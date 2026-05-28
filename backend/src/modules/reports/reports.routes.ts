@@ -26,7 +26,7 @@ function getCurrentUserOrUnauthorized(
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
-  if (!currentUserId) {
+  if (!currentUserId || !currentUserRole) {
     return null
   }
 

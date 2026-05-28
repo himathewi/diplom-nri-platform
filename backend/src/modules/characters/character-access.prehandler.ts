@@ -1,6 +1,12 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
+
 import { getCurrentUser } from '../../middlewares/auth.middleware'
-import { CharacterForbiddenError, CharacterNotFoundError } from './errors'
+
+import {
+  CharacterForbiddenError,
+  CharacterNotFoundError,
+} from './errors'
+
 import { characterService } from './character.service'
 
 const uuidPattern =

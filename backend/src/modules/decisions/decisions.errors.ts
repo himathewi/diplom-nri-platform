@@ -40,16 +40,44 @@ export class DecisionEventSessionMismatchError extends Error {
   }
 }
 
-export class DecisionCharacterNotFoundError extends Error {
-  constructor(characterId: string) {
-    super(`Character with id ${characterId} not found`)
-    this.name = 'DecisionCharacterNotFoundError'
+export class DecisionSessionTaskNotFoundError extends Error {
+  constructor(sessionTaskId: string) {
+    super(`Session task with id ${sessionTaskId} not found`)
+    this.name = 'DecisionSessionTaskNotFoundError'
   }
 }
 
-export class DecisionCharacterNotParticipantError extends Error {
-  constructor(characterId: string) {
-    super(`Character with id ${characterId} is not a participant of this session`)
-    this.name = 'DecisionCharacterNotParticipantError'
+export class DecisionSessionTaskMismatchError extends Error {
+  constructor() {
+    super('Session task does not belong to this session')
+    this.name = 'DecisionSessionTaskMismatchError'
+  }
+}
+
+export class DecisionSessionTaskHiddenError extends Error {
+  constructor() {
+    super('Session task is hidden for participants')
+    this.name = 'DecisionSessionTaskHiddenError'
+  }
+}
+
+export class DecisionSessionParticipantNotFoundError extends Error {
+  constructor(participantId: string) {
+    super(`Session participant with id ${participantId} not found`)
+    this.name = 'DecisionSessionParticipantNotFoundError'
+  }
+}
+
+export class DecisionUserNotSessionParticipantError extends Error {
+  constructor() {
+    super('Current user is not a participant of this session')
+    this.name = 'DecisionUserNotSessionParticipantError'
+  }
+}
+
+export class DecisionSessionParticipantMismatchError extends Error {
+  constructor() {
+    super('Session participant does not belong to this session')
+    this.name = 'DecisionSessionParticipantMismatchError'
   }
 }

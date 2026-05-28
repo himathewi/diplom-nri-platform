@@ -1,9 +1,13 @@
+<<<<<<< HEAD
 import type {
   ScenarioDomain,
   SessionEventType,
   SessionStatus,
   UserRole,
 } from './enums'
+=======
+export type ReportUserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT'
+>>>>>>> origin/main
 
 export type ReportUserRole = UserRole
 export type ReportSessionStatus = SessionStatus

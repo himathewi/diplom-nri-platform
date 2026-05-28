@@ -1,17 +1,10 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
+
 import {
   authMiddleware,
-  getAuthUserId,
-  getAuthUserRole,
+  getCurrentUser,
 } from '../../middlewares/auth.middleware'
-import type { CurrentUser } from '../../shared/types'
-import { sessionEventsService } from './session-events.service'
-import {
-  createSessionEventSchema,
-  sessionEventParamsSchema,
-  sessionEventSessionParamsSchema,
-  updateSessionEventSchema,
-} from './session-events.schemas'
+
 import {
   SessionEventForbiddenError,
   SessionEventNotFoundError,
@@ -20,24 +13,19 @@ import {
   SessionEventSessionNotFoundError,
 } from './session-events.errors'
 
-function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[0]): CurrentUser | null {
-  const currentUserId = getAuthUserId(request)
-  const currentUserRole = getAuthUserRole(request)
+import {
+  createSessionEventSchema,
+  sessionEventParamsSchema,
+  sessionEventSessionParamsSchema,
+  updateSessionEventSchema,
+} from './session-events.schemas'
 
-  if (!currentUserId) {
-    return null
-  }
-
-  return {
-    id: currentUserId,
-    role: currentUserRole as CurrentUser['role'],
-  }
-}
+import { sessionEventsService } from './session-events.service'
 
 function handleSessionEventError(error: unknown, reply: FastifyReply) {
   if (
-    error instanceof SessionEventNotFoundError ||
-    error instanceof SessionEventSessionNotFoundError
+    error instanceof SessionEventNotFoundError
+    || error instanceof SessionEventSessionNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
@@ -51,8 +39,8 @@ function handleSessionEventError(error: unknown, reply: FastifyReply) {
   }
 
   if (
-    error instanceof SessionEventSessionNotActiveError ||
-    error instanceof SessionEventSessionAlreadyFinishedError
+    error instanceof SessionEventSessionNotActiveError
+    || error instanceof SessionEventSessionAlreadyFinishedError
   ) {
     return reply.status(409).send({
       message: error.message,
@@ -80,7 +68,7 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUser = getCurrentUserOrUnauthorized(request)
+      const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
         return reply.status(401).send({
@@ -116,7 +104,7 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUser = getCurrentUserOrUnauthorized(request)
+      const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
         return reply.status(401).send({
@@ -162,7 +150,7 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUser = getCurrentUserOrUnauthorized(request)
+      const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
         return reply.status(401).send({
@@ -207,7 +195,7 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUser = getCurrentUserOrUnauthorized(request)
+      const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
         return reply.status(401).send({
@@ -244,7 +232,7 @@ export async function sessionEventsRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUser = getCurrentUserOrUnauthorized(request)
+      const currentUser = getCurrentUser(request)
 
       if (!currentUser) {
         return reply.status(401).send({

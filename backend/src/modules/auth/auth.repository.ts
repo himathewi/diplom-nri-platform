@@ -1,16 +1,21 @@
 import { prisma } from '../../lib/prisma'
+
 import type { RegisterInput } from './auth.schemas'
 
 export const authRepository = {
   findByEmail(email: string) {
     return prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+      },
     })
   },
 
   findById(id: string) {
     return prisma.user.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: {
         id: true,
         email: true,
@@ -28,7 +33,7 @@ export const authRepository = {
         email: data.email,
         password: data.password,
         name: data.name,
-        role: 'PARTICIPANT',
+        role: data.role,
       },
       select: {
         id: true,

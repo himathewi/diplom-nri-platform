@@ -1,26 +1,32 @@
-import { decisionsRepository } from './decisions.repository'
-import type {
-  CreateDecisionInput,
-  EvaluateDecisionInput,
-  UpdateDecisionInput,
-} from './decisions.schemas'
+import type { CurrentUser } from '../../shared/types'
 import {
-  DecisionCharacterNotFoundError,
-  DecisionCharacterNotParticipantError,
   DecisionEventNotFoundError,
   DecisionEventSessionMismatchError,
   DecisionForbiddenError,
   DecisionNotFoundError,
   DecisionSessionNotActiveError,
   DecisionSessionNotFoundError,
+  DecisionSessionParticipantMismatchError,
+  DecisionSessionParticipantNotFoundError,
+  DecisionSessionTaskHiddenError,
+  DecisionSessionTaskMismatchError,
+  DecisionSessionTaskNotFoundError,
+  DecisionUserNotSessionParticipantError,
 } from './decisions.errors'
-import type { CurrentUser } from '../../shared/types'
+import { decisionsRepository } from './decisions.repository'
+import type {
+  CreateDecisionInput,
+  EvaluateDecisionInput,
+  UpdateDecisionInput,
+} from './decisions.schemas'
 
 type SessionForAccess = Awaited<
   ReturnType<typeof decisionsRepository.findSessionById>
 >
 
-type DecisionForAccess = Awaited<ReturnType<typeof decisionsRepository.findById>>
+type DecisionForAccess = Awaited<
+  ReturnType<typeof decisionsRepository.findById>
+>
 
 function canManageDecisions(
   session: { moderatorId: string | null },
@@ -32,28 +38,43 @@ function canManageDecisions(
   )
 }
 
-function canViewAllDecisions(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
+function assertCanManageDecisions(
+  session: { moderatorId: string | null },
+  currentUser: CurrentUser,
+) {
+  if (!canManageDecisions(session, currentUser)) {
+    throw new DecisionForbiddenError()
+  }
+}
+
+function isSessionParticipant(
+  session: NonNullable<SessionForAccess>,
+  currentUser: CurrentUser,
+) {
+  return session.participants.some(
+    (participant) => participant.userId === currentUser.id,
   )
 }
 
-function canViewSession(session: NonNullable<SessionForAccess>, currentUser: CurrentUser) {
-  if (canViewAllDecisions(currentUser)) {
+function isTeamMember(
+  session: NonNullable<SessionForAccess>,
+  currentUser: CurrentUser,
+) {
+  return (
+    session.team?.members.some((member) => member.userId === currentUser.id) ??
+    false
+  )
+}
+
+function canViewSession(
+  session: NonNullable<SessionForAccess>,
+  currentUser: CurrentUser,
+) {
+  if (canManageDecisions(session, currentUser)) {
     return true
   }
 
-  const isTeamMember = session.team?.members.some(
-    (member) => member.userId === currentUser.id,
-  )
-
-  const isParticipant = session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
-  )
-
-  return Boolean(isTeamMember || isParticipant)
+  return isSessionParticipant(session, currentUser) || isTeamMember(session, currentUser)
 }
 
 function assertCanViewSession(
@@ -65,33 +86,17 @@ function assertCanViewSession(
   }
 }
 
-function assertCanManageDecisions(
-  session: { moderatorId: string | null },
-  currentUser: CurrentUser,
-) {
-  if (!canManageDecisions(session, currentUser)) {
-    throw new DecisionForbiddenError()
-  }
-}
-
-function assertSessionIsActive(session: NonNullable<SessionForAccess>) {
+function assertSessionIsActive(session: { id: string; status: string }) {
   if (session.status !== 'ACTIVE') {
     throw new DecisionSessionNotActiveError(session.id)
   }
-}
-
-function canEditDecision(
-  decision: NonNullable<DecisionForAccess>,
-  currentUser: CurrentUser,
-) {
-  return canManageDecisions(decision.session, currentUser) || decision.userId === currentUser.id
 }
 
 function canViewDecision(
   decision: NonNullable<DecisionForAccess>,
   currentUser: CurrentUser,
 ) {
-  if (canViewAllDecisions(currentUser)) {
+  if (canManageDecisions(decision.session, currentUser)) {
     return true
   }
 
@@ -99,15 +104,26 @@ function canViewDecision(
     return true
   }
 
-  const isTeamMember = decision.session.team?.members.some(
-    (member) => member.userId === currentUser.id,
-  )
+  if (decision.sessionParticipant?.userId === currentUser.id) {
+    return true
+  }
 
-  const isParticipant = decision.session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
-  )
+  return isSessionParticipant(decision.session, currentUser)
+}
 
-  return Boolean(isTeamMember || isParticipant)
+function canEditDecision(
+  decision: NonNullable<DecisionForAccess>,
+  currentUser: CurrentUser,
+) {
+  if (canManageDecisions(decision.session, currentUser)) {
+    return true
+  }
+
+  if (decision.userId === currentUser.id) {
+    return true
+  }
+
+  return decision.sessionParticipant?.userId === currentUser.id
 }
 
 async function validateEventBelongsToSession(
@@ -131,48 +147,131 @@ async function validateEventBelongsToSession(
   return event
 }
 
-async function validateCharacterBelongsToSession(
+async function validateSessionTaskBelongsToSession(
   sessionId: string,
-  characterId?: string | null,
+  sessionTaskId: string | null | undefined,
+  currentUser: CurrentUser,
 ) {
-  if (!characterId) {
+  if (!sessionTaskId) {
     return null
   }
 
-  const character = await decisionsRepository.findCharacterById(characterId)
+  const sessionTask = await decisionsRepository.findSessionTaskById(sessionTaskId)
 
-  if (!character) {
-    throw new DecisionCharacterNotFoundError(characterId)
+  if (!sessionTask) {
+    throw new DecisionSessionTaskNotFoundError(sessionTaskId)
   }
 
-  const participant = await decisionsRepository.findParticipant(
-    sessionId,
-    characterId,
-  )
-
-  if (!participant) {
-    throw new DecisionCharacterNotParticipantError(characterId)
+  if (sessionTask.sessionId !== sessionId) {
+    throw new DecisionSessionTaskMismatchError()
   }
 
-  return character
+  if (
+    currentUser.role === 'PARTICIPANT' &&
+    !sessionTask.isVisibleToParticipants
+  ) {
+    throw new DecisionSessionTaskHiddenError()
+  }
+
+  return sessionTask
 }
 
-function assertCanUseCharacter(
-  character: Awaited<ReturnType<typeof validateCharacterBelongsToSession>>,
+async function validateParticipantBelongsToSession(
+  sessionId: string,
+  participantId: string,
+) {
+  const participant = await decisionsRepository.findParticipantById(participantId)
+
+  if (!participant) {
+    throw new DecisionSessionParticipantNotFoundError(participantId)
+  }
+
+  if (participant.sessionId !== sessionId) {
+    throw new DecisionSessionParticipantMismatchError()
+  }
+
+  return participant
+}
+
+async function resolveParticipantForCreate(
+  sessionId: string,
+  data: CreateDecisionInput,
   currentUser: CurrentUser,
   session: { moderatorId: string | null },
 ) {
-  if (!character) {
-    return
+  if (canManageDecisions(session, currentUser)) {
+    if (!data.sessionParticipantId) {
+      return null
+    }
+
+    const participant = await validateParticipantBelongsToSession(
+      sessionId,
+      data.sessionParticipantId,
+    )
+
+    return participant.id
+  }
+
+  const participant = await decisionsRepository.findParticipantBySessionAndUser(
+    sessionId,
+    currentUser.id,
+  )
+
+  if (!participant) {
+    throw new DecisionUserNotSessionParticipantError()
+  }
+
+  if (
+    data.sessionParticipantId &&
+    data.sessionParticipantId !== participant.id
+  ) {
+    throw new DecisionForbiddenError()
+  }
+
+  return participant.id
+}
+
+async function resolveParticipantForUpdate(
+  sessionId: string,
+  data: UpdateDecisionInput,
+  currentUser: CurrentUser,
+  session: { moderatorId: string | null },
+) {
+  if (typeof data.sessionParticipantId === 'undefined') {
+    return undefined
   }
 
   if (canManageDecisions(session, currentUser)) {
-    return
+    if (data.sessionParticipantId === null) {
+      return null
+    }
+
+    const participant = await validateParticipantBelongsToSession(
+      sessionId,
+      data.sessionParticipantId,
+    )
+
+    return participant.id
   }
 
-  if (character.userId !== currentUser.id) {
+  if (data.sessionParticipantId === null) {
     throw new DecisionForbiddenError()
   }
+
+  const participant = await decisionsRepository.findParticipantBySessionAndUser(
+    sessionId,
+    currentUser.id,
+  )
+
+  if (!participant) {
+    throw new DecisionUserNotSessionParticipantError()
+  }
+
+  if (data.sessionParticipantId !== participant.id) {
+    throw new DecisionForbiddenError()
+  }
+
+  return participant.id
 }
 
 export const decisionsService = {
@@ -217,15 +316,25 @@ export const decisionsService = {
     assertSessionIsActive(session)
 
     await validateEventBelongsToSession(sessionId, data.eventId)
-
-    const character = await validateCharacterBelongsToSession(
+    await validateSessionTaskBelongsToSession(
       sessionId,
-      data.characterId,
+      data.sessionTaskId,
+      currentUser,
     )
 
-    assertCanUseCharacter(character, currentUser, session)
+    const sessionParticipantId = await resolveParticipantForCreate(
+      sessionId,
+      data,
+      currentUser,
+      session,
+    )
 
-    return decisionsRepository.create(sessionId, currentUser.id, data)
+    return decisionsRepository.create(
+      sessionId,
+      currentUser.id,
+      data,
+      sessionParticipantId,
+    )
   },
 
   async updateDecision(
@@ -246,15 +355,20 @@ export const decisionsService = {
     assertSessionIsActive(decision.session)
 
     await validateEventBelongsToSession(decision.sessionId, data.eventId)
-
-    const character = await validateCharacterBelongsToSession(
+    await validateSessionTaskBelongsToSession(
       decision.sessionId,
-      data.characterId,
+      data.sessionTaskId,
+      currentUser,
     )
 
-    assertCanUseCharacter(character, currentUser, decision.session)
+    const sessionParticipantId = await resolveParticipantForUpdate(
+      decision.sessionId,
+      data,
+      currentUser,
+      decision.session,
+    )
 
-    return decisionsRepository.update(decisionId, data)
+    return decisionsRepository.update(decisionId, data, sessionParticipantId)
   },
 
   async evaluateDecision(

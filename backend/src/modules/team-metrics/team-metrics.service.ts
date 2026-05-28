@@ -31,18 +31,17 @@ function canManageTeamMetrics(
 }
 
 function canViewAllTeamMetrics(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
-  )
+  return currentUser.role === 'ADMIN'
 }
 
 function canViewSession(
   session: NonNullable<SessionForAccess>,
   currentUser: CurrentUser,
 ) {
-  if (canViewAllTeamMetrics(currentUser)) {
+  if (
+    canViewAllTeamMetrics(currentUser) ||
+    canManageTeamMetrics(session, currentUser)
+  ) {
     return true
   }
 
@@ -51,7 +50,7 @@ function canViewSession(
   )
 
   const isParticipant = session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
+    (participant) => participant.userId === currentUser.id,
   )
 
   return Boolean(isTeamMember || isParticipant)

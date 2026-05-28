@@ -1,113 +1,67 @@
 import { z } from 'zod'
-import { characterStatsSchema } from '../character-stats/character-stats.schemas'
-
-// =========================================================
-// Общие enum/списки
-// =========================================================
-
-export const spellcastingAbilitySchema = z.enum([
-  'strength',
-  'dexterity',
-  'constitution',
-  'intelligence',
-  'wisdom',
-  'charisma',
-])
-
-// =========================================================
-// Shared field schemas
-// =========================================================
 
 const optionalNullableStringSchema = z.string().nullable().optional()
 
-const avatarUrlSchema = z
-  .string()
-  .url()
-  .or(z.literal(''))
-  .nullable()
-  .optional()
+export const characterStatsSchema = z
+  .object({
+    strength: z.number().int().min(1).max(30).default(10),
+    dexterity: z.number().int().min(1).max(30).default(10),
+    constitution: z.number().int().min(1).max(30).default(10),
+    intelligence: z.number().int().min(1).max(30).default(10),
+    wisdom: z.number().int().min(1).max(30).default(10),
+    charisma: z.number().int().min(1).max(30).default(10),
+  })
+  .strict()
 
-// =========================================================
-// Character
-// =========================================================
+export const updateCharacterStatsSchema = characterStatsSchema.partial().strict()
 
-// Параметры маршрута для операций над персонажем.
 export const characterParamsSchema = z
   .object({
     id: z.string().uuid(),
   })
   .strict()
 
-// Схема создания персонажа.
-//
-// Важно:
-// - create character создаёт базового персонажа;
-// - stats создаются в repository из baseStats или дефолтными значениями;
-// - HP / death saves / hit dice задаются в characterService;
-// - attacks / spells / inventory создаются отдельными endpoints;
-// - null разрешён для nullable profile-полей, чтобы frontend мог явно
-//   отправлять пустое значение.
-export const createCharacterSchema = z
+export const sessionCharacterParamsSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+  })
+  .strict()
+
+export const sessionCharacterCreationSchema = z
   .object({
     name: z.string().min(1, 'Name is required'),
-    race: z.string().min(1, 'Race is required'),
-    className: z.string().min(1, 'Class is required'),
-
-    level: z.number().int().min(1).max(20).default(1),
-
+    roleClassId: z.string().uuid(),
     description: optionalNullableStringSchema,
-    alignment: optionalNullableStringSchema,
-    background: optionalNullableStringSchema,
-    avatarUrl: avatarUrlSchema,
-
-    speed: z.number().int().min(0).default(30),
-
-    spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
-
+    professionalFunction: optionalNullableStringSchema,
     baseStats: characterStatsSchema.optional(),
   })
   .strict()
 
-// Частичное обновление базового профиля персонажа.
-//
-// Важно:
-// Через PATCH /characters/:id НЕ меняем:
-// - currentHp
-// - temporaryHp
-// - deathSaveSuccesses
-// - deathSaveFailures
-// - hitDiceTotal
-// - hitDiceUsed
-// - hitDiceDice
-// - inspiration
-// - spellSlots
-// - stats
-// - attacks
-// - spells
-// - inventory
-//
-// Для них есть отдельные modules/actions.
 export const updateCharacterSchema = z
   .object({
     name: z.string().min(1, 'Name is required').optional(),
-    race: z.string().min(1, 'Race is required').optional(),
-    className: z.string().min(1, 'Class is required').optional(),
-
+    roleClassId: z.string().uuid().nullable().optional(),
     description: optionalNullableStringSchema,
-    alignment: optionalNullableStringSchema,
-    background: optionalNullableStringSchema,
-    avatarUrl: avatarUrlSchema,
-
-    speed: z.number().int().min(0).optional(),
-
-    spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
+    professionalFunction: optionalNullableStringSchema,
+    currentFatigue: z.number().int().min(0).optional(),
+    baseStats: updateCharacterStatsSchema.optional(),
   })
   .strict()
 
-// =========================================================
-// Types
-// =========================================================
-
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>
-export type CreateCharacterInput = z.infer<typeof createCharacterSchema>
+
+export type SessionCharacterParamsInput = z.infer<
+  typeof sessionCharacterParamsSchema
+>
+
+export type CharacterStatsInput = z.infer<typeof characterStatsSchema>
+
+export type UpdateCharacterStatsInput = z.infer<
+  typeof updateCharacterStatsSchema
+>
+
+export type SessionCharacterCreationInput = z.infer<
+  typeof sessionCharacterCreationSchema
+>
+
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>

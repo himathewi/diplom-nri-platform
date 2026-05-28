@@ -55,8 +55,8 @@ export class CharacterNotFoundForSessionError extends Error {
 }
 
 export class SessionParticipantAlreadyExistsError extends Error {
-  constructor(characterId: string) {
-    super(`Character with id ${characterId} is already a participant of this session`)
+  constructor(userId: string) {
+    super(`User with id ${userId} is already a participant of this session`)
     this.name = 'SessionParticipantAlreadyExistsError'
   }
 }

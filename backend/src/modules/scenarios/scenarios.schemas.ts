@@ -1,14 +1,8 @@
 import { z } from 'zod'
 
-export const scenarioDomainSchema = z.enum([
-  'CROP_PRODUCTION',
-  'GREENHOUSE',
-  'LIVESTOCK',
-  'LOGISTICS',
-  'PROCESSING',
-  'ROBOTICS',
-  'TEAMBUILDING',
-])
+export const scenarioSourceTypeSchema = z.enum(['TEMPLATE', 'CUSTOM'])
+
+export const scenarioTaskTypeSchema = z.enum(['MAIN', 'SIDE', 'OPTIONAL'])
 
 export const scenarioParamsSchema = z
   .object({
@@ -27,9 +21,13 @@ export const createScenarioSchema = z
   .object({
     title: z.string().min(1),
     description: z.string().min(1),
-    domain: scenarioDomainSchema,
     goal: z.string().min(1),
     difficulty: z.number().int().min(1).max(5).optional(),
+
+    sourceType: scenarioSourceTypeSchema.optional(),
+    isPublicTemplate: z.boolean().optional(),
+
+    directionId: z.string().uuid().nullable().optional(),
   })
   .strict()
 
@@ -39,8 +37,26 @@ export const createScenarioTaskSchema = z
   .object({
     title: z.string().min(1),
     description: z.string().min(1),
-    taskType: z.string().min(1),
-    expectedResult: z.string().min(1).optional().nullable(),
+    taskType: scenarioTaskTypeSchema.optional(),
+    sourceTemplateId: z.string().uuid().nullable().optional(),
+
+    difficulty: z.number().int().min(1).max(5).optional(),
+    fatigueCost: z.number().int().min(0).optional(),
+
+    expectedResult: z.string().min(1).nullable().optional(),
+    moderatorNotes: z.string().min(1).nullable().optional(),
+    isVisibleByDefault: z.boolean().optional(),
+    requiredItems: z
+      .array(
+        z
+          .object({
+            itemId: z.string().uuid(),
+            quantity: z.number().int().min(1).default(1),
+            notes: z.string().nullable().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict()
 

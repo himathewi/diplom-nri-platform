@@ -1,162 +1,248 @@
-import { calculateMaxHp } from '../calculation/hp.rules'
 import {
-  rollAbilityScores,
-  type AbilityScores,
-} from '../calculation/stats.rules'
-import { characterHpRepository } from '../character-hp/character-hp.repository'
+  CharacterStatsCharacterNotFoundError,
+  CharacterStatsValidationError,
+} from './character-stats.errors'
+
 import { characterStatsRepository } from './character-stats.repository'
-import { CharacterNotFoundError } from '../characters/errors'
-import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
-import {
-  calculateEffectiveMaxHp,
-  normalizeItemEffects,
-} from '../calculation/item-effects.rules'
 
-async function calculateCharacterEffectiveMaxHp(
-  characterId: string,
-  baseMaxHp: number,
-): Promise<number> {
-  const items = await characterInventoryRepository.findByCharacterId(characterId)
+import type {
+  CharacterStatsInput,
+  UpdateCharacterStatsInput,
+} from './character-stats.schemas'
 
-  const equippedItems = items
-    .filter((item) => item.isEquipped)
-    .map((item) => ({
-      effects: normalizeItemEffects(
-        item.effects ?? item.itemTemplate?.effects ?? null,
-      ),
-    }))
-
-  return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+type AbilityScores = {
+  strength: number
+  dexterity: number
+  constitution: number
+  intelligence: number
+  wisdom: number
+  charisma: number
 }
 
-function getNextCurrentHp(input: {
-  currentHp: number
-  previousMaxHp: number
-  nextMaxHp: number
-}): number | undefined {
-  if (input.currentHp >= input.previousMaxHp) {
-    return input.nextMaxHp
+const defaultStats: AbilityScores = {
+  strength: 10,
+  dexterity: 10,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 10,
+}
+
+function getAbilityModifier(value: number) {
+  return Math.floor((value - 10) / 2)
+}
+
+function calculateFatigueLimit(constitution: number) {
+  return Math.max(3, 3 + getAbilityModifier(constitution))
+}
+
+function getModifiers(stats: AbilityScores): AbilityScores {
+  return {
+    strength: getAbilityModifier(stats.strength),
+    dexterity: getAbilityModifier(stats.dexterity),
+    constitution: getAbilityModifier(stats.constitution),
+    intelligence: getAbilityModifier(stats.intelligence),
+    wisdom: getAbilityModifier(stats.wisdom),
+    charisma: getAbilityModifier(stats.charisma),
+  }
+}
+
+function normalizeStats(stats: AbilityScores | null | undefined): AbilityScores {
+  return {
+    ...defaultStats,
+    ...(stats ?? {}),
+  }
+}
+
+function mergeStats(
+  currentStats: AbilityScores | null | undefined,
+  update: UpdateCharacterStatsInput,
+): AbilityScores {
+  return {
+    ...normalizeStats(currentStats),
+    ...update,
+  }
+}
+
+function getFatigueState(input: {
+  fatigueLimit: number
+  currentFatigue: number
+}) {
+  if (input.currentFatigue > input.fatigueLimit + 1) {
+    return 'EXHAUSTED'
   }
 
-  if (input.currentHp > input.nextMaxHp) {
-    return input.nextMaxHp
+  if (input.currentFatigue === input.fatigueLimit + 1) {
+    return 'OVERLOADED'
   }
 
-  return undefined
+  return 'NORMAL'
+}
+
+function rollD6() {
+  return Math.floor(Math.random() * 6) + 1
+}
+
+function rollAbilityScore() {
+  const rolls = Array.from({ length: 4 }, rollD6).sort((a, b) => a - b)
+
+  return rolls.slice(1).reduce((sum, value) => sum + value, 0)
+}
+
+function rollStats(): AbilityScores {
+  return {
+    strength: rollAbilityScore(),
+    dexterity: rollAbilityScore(),
+    constitution: rollAbilityScore(),
+    intelligence: rollAbilityScore(),
+    wisdom: rollAbilityScore(),
+    charisma: rollAbilityScore(),
+  }
+}
+
+function toStatsResponse(character: {
+  id: string
+  fatigueLimit: number
+  currentFatigue: number
+  stats: AbilityScores | null
+}) {
+  const base = normalizeStats(character.stats)
+
+  return {
+    characterId: character.id,
+    stats: {
+      base,
+      modifiers: getModifiers(base),
+    },
+    fatigue: {
+      limit: character.fatigueLimit,
+      current: character.currentFatigue,
+      remaining: Math.max(0, character.fatigueLimit - character.currentFatigue),
+      state: getFatigueState({
+        fatigueLimit: character.fatigueLimit,
+        currentFatigue: character.currentFatigue,
+      }),
+    },
+    rules: {
+      modifierFormula: 'floor((value - 10) / 2)',
+      fatigueLimitFormula: 'max(3, 3 + constitutionModifier)',
+      rollFormula: '4d6 drop lowest',
+    },
+  }
+}
+
+function assertStatsUpdateIsNotEmpty(data: UpdateCharacterStatsInput) {
+  if (Object.keys(data).length === 0) {
+    throw new CharacterStatsValidationError(
+      'At least one ability score must be provided',
+    )
+  }
 }
 
 export const characterStatsService = {
-  // Ручное обновление базовых характеристик персонажа.
-  //
-  // Логика:
-  // 1. Проверяем, что персонаж существует.
-  // 2. Сохраняем stats через upsert:
-  //    - если stats есть — обновляем
-  //    - если stats нет — создаём
-  // 3. Пересчитываем base maxHp, потому что constitution влияет на HP 1 уровня.
-  // 4. Добавляем hpBonus от экипированных предметов.
-  // 5. Если currentHp стал выше нового effective maxHp — обрезаем currentHp.
-  // 6. Возвращаем обновлённые stats.
-  async updateCharacterStats(id: string, stats: AbilityScores) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+  async getCharacterStats(characterId: string) {
+    const character = await characterStatsRepository.findCharacterById(
+      characterId,
+    )
 
     if (!character) {
-      throw new CharacterNotFoundError(id)
+      throw new CharacterStatsCharacterNotFoundError(characterId)
     }
 
-    const previousBaseMaxHp = calculateMaxHp({
-      ...character,
-      hpIncreases: character.hpIncreases ?? [],
-    })
-
-    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
-      id,
-      previousBaseMaxHp,
-    )
-
-    const nextBaseMaxHp = calculateMaxHp({
-      ...character,
-      stats,
-      hpIncreases: character.hpIncreases ?? [],
-    })
-
-    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
-    const nextCurrentHp = getNextCurrentHp({
-      currentHp: character.currentHp,
-      previousMaxHp,
-      nextMaxHp,
-    })
-
-    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
-      id,
-      stats,
-      nextCurrentHp !== undefined
-        ? {
-            currentHp: nextCurrentHp,
-            temporaryHp: character.temporaryHp,
-          }
-        : undefined,
-    )
-
-    return updatedStats
+    return toStatsResponse(character)
   },
 
-  // Генерация базовых характеристик через 4d6 drop lowest.
-  //
-  // Для каждого стата сервер:
-  // 1. кидает 4d6
-  // 2. убирает минимальный куб
-  // 3. складывает оставшиеся 3
-  //
-  // Важно:
-  // фронт НЕ кидает кубы сам.
-  // Фронт только вызывает endpoint, а сервер возвращает результат.
-  async rollCharacterStats(id: string) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+  async setCharacterStats(
+    characterId: string,
+    stats: CharacterStatsInput,
+  ) {
+    const character = await characterStatsRepository.findCharacterById(
+      characterId,
+    )
 
     if (!character) {
-      throw new CharacterNotFoundError(id)
+      throw new CharacterStatsCharacterNotFoundError(characterId)
     }
 
-    const result = rollAbilityScores()
+    const fatigueLimit = calculateFatigueLimit(stats.constitution)
 
-    const previousBaseMaxHp = calculateMaxHp({
-      ...character,
-      hpIncreases: character.hpIncreases ?? [],
-    })
+    const updatedCharacter =
+      await characterStatsRepository.upsertStatsAndUpdateFatigueLimit(
+        characterId,
+        stats,
+        fatigueLimit,
+      )
 
-    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
-      id,
-      previousBaseMaxHp,
+    return toStatsResponse(updatedCharacter)
+  },
+
+  async updateCharacterStats(
+    characterId: string,
+    data: UpdateCharacterStatsInput,
+  ) {
+    assertStatsUpdateIsNotEmpty(data)
+
+    const character = await characterStatsRepository.findCharacterById(
+      characterId,
     )
 
-    const nextBaseMaxHp = calculateMaxHp({
-      ...character,
-      stats: result.stats,
-      hpIncreases: character.hpIncreases ?? [],
-    })
-
-    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
-    const nextCurrentHp = getNextCurrentHp({
-      currentHp: character.currentHp,
-      previousMaxHp,
-      nextMaxHp,
-    })
-
-    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
-      id,
-      result.stats,
-      nextCurrentHp !== undefined
-        ? {
-            currentHp: nextCurrentHp,
-            temporaryHp: character.temporaryHp,
-          }
-        : undefined,
-    )
-
-    return {
-      stats: updatedStats,
-      rolls: result.rolls,
+    if (!character) {
+      throw new CharacterStatsCharacterNotFoundError(characterId)
     }
+
+    const nextStats = mergeStats(character.stats, data)
+    const fatigueLimit = calculateFatigueLimit(nextStats.constitution)
+
+    const updatedCharacter =
+      await characterStatsRepository.updateStatsAndFatigueLimit(
+        characterId,
+        data,
+        fatigueLimit,
+      )
+
+    return toStatsResponse(updatedCharacter)
+  },
+
+  async rollCharacterStats(characterId: string) {
+    const character = await characterStatsRepository.findCharacterById(
+      characterId,
+    )
+
+    if (!character) {
+      throw new CharacterStatsCharacterNotFoundError(characterId)
+    }
+
+    const rolledStats = rollStats()
+    const fatigueLimit = calculateFatigueLimit(rolledStats.constitution)
+
+    const updatedCharacter =
+      await characterStatsRepository.upsertStatsAndUpdateFatigueLimit(
+        characterId,
+        rolledStats,
+        fatigueLimit,
+      )
+
+    return toStatsResponse(updatedCharacter)
+  },
+
+  async resetCharacterStats(characterId: string) {
+    const character = await characterStatsRepository.findCharacterById(
+      characterId,
+    )
+
+    if (!character) {
+      throw new CharacterStatsCharacterNotFoundError(characterId)
+    }
+
+    const fatigueLimit = calculateFatigueLimit(defaultStats.constitution)
+
+    const updatedCharacter =
+      await characterStatsRepository.upsertStatsAndUpdateFatigueLimit(
+        characterId,
+        defaultStats,
+        fatigueLimit,
+      )
+
+    return toStatsResponse(updatedCharacter)
   },
 }

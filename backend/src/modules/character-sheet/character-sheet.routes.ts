@@ -1,10 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
-import { CharacterNotFoundError } from '../characters/errors'
-import { characterParamsSchema } from '../characters/character.schemas'
-import { CharacterSheetService } from './character-sheet.service'
 import { authMiddleware } from '../../middlewares/auth.middleware'
+
 import { characterAccessPreHandler } from '../characters/character-access.prehandler'
+import { characterParamsSchema } from '../characters/character.schemas'
+
+import { CharacterSheetNotFoundError } from './character-sheet.errors'
+import { CharacterSheetService } from './character-sheet.service'
 
 type CharacterSheetRouteDeps = {
   characterSheetService: CharacterSheetService
@@ -19,6 +21,7 @@ export async function characterSheetRoutes(
   deps: CharacterSheetRouteDeps,
 ) {
   const { characterSheetService } = deps
+
   app.addHook('preHandler', authMiddleware)
   app.addHook('preHandler', characterAccessPreHandler)
 
@@ -44,15 +47,13 @@ export async function characterSheetRoutes(
 
         return reply.send(sheet)
       } catch (error: unknown) {
-        if (error instanceof CharacterNotFoundError) {
-          return reply.status(404).send({ message: error.message })
+        if (error instanceof CharacterSheetNotFoundError) {
+          return reply.status(404).send({
+            message: error.message,
+          })
         }
 
-        app.log.error(error)
-
-        return reply.status(500).send({
-          message: 'Internal server error',
-        })
+        throw error
       }
     },
   )
