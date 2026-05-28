@@ -33,11 +33,7 @@ function canManageSession(
 }
 
 function canViewAllSessions(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
-  )
+  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
 }
 
 function assertCanManageSession(

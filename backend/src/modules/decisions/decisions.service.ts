@@ -33,11 +33,7 @@ function canManageDecisions(
 }
 
 function canViewAllDecisions(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
-  )
+  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
 }
 
 function canViewSession(session: NonNullable<SessionForAccess>, currentUser: CurrentUser) {

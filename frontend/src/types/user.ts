@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' | 'EXPERT'
+export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT'
 
 export type User = {
   id: string

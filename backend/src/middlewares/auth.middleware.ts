@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { prisma } from '../lib/prisma'
 import type { CurrentUser, UserRole } from '../shared/types'
 
-const VALID_ROLES: UserRole[] = ['ADMIN', 'MODERATOR', 'PARTICIPANT', 'EXPERT']
+const VALID_ROLES: UserRole[] = ['ADMIN', 'MODERATOR', 'PARTICIPANT']
 
 type JwtUserPayload = {
   sub?: unknown

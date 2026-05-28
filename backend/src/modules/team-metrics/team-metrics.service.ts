@@ -31,11 +31,7 @@ function canManageTeamMetrics(
 }
 
 function canViewAllTeamMetrics(currentUser: CurrentUser) {
-  return (
-    currentUser.role === 'ADMIN' ||
-    currentUser.role === 'MODERATOR' ||
-    currentUser.role === 'EXPERT'
-  )
+  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
 }
 
 function canViewSession(

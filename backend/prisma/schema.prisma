@@ -20,7 +20,6 @@ enum UserRole {
   ADMIN
   MODERATOR
   PARTICIPANT
-  EXPERT
 }
 
 // =========================

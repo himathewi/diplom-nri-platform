@@ -4,7 +4,6 @@ export const userRoleSchema = z.enum([
   'ADMIN',
   'MODERATOR',
   'PARTICIPANT',
-  'EXPERT',
 ])
 
 export const userParamsSchema = z
