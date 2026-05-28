@@ -4,9 +4,13 @@ import type { CurrentUser } from '../../shared/types'
 
 import {
   SessionTaskForbiddenError,
+  SessionTaskCharacterRequiredError,
+  SessionTaskDiceRollUnavailableError,
   SessionTaskItemNotFoundError,
   SessionTaskNotFoundError,
+  SessionTaskParticipantNotFoundError,
   SessionTaskRequiredItemNotFoundError,
+  SessionTaskRollAlreadyExistsError,
   SessionTaskScenarioMismatchError,
   SessionTaskScenarioTaskNotFoundError,
   SessionTaskSessionFinishedError,
@@ -28,6 +32,9 @@ import type {
   SessionTaskRequiredItemInput,
   UpdateSessionTaskInput,
 } from './session-tasks.schemas'
+
+const D6_MIN = 1
+const D6_MAX = 6
 
 type SessionForAccess = NonNullable<
   Awaited<ReturnType<typeof sessionTasksRepository.findSessionById>>
@@ -98,6 +105,12 @@ function assertCanManageSession(
 function assertSessionIsNotFinished(session: { id: string; status: string }) {
   if (session.status === 'FINISHED') {
     throw new SessionTaskSessionFinishedError(session.id)
+  }
+}
+
+function assertSessionIsActive(session: { id: string; status: string }) {
+  if (session.status !== 'ACTIVE') {
+    throw new SessionTaskForbiddenError('Dice rolls are available only in active sessions')
   }
 }
 
@@ -289,6 +302,34 @@ function toSkillAdvantagesFromSource(
   }))
 }
 
+function rollD6() {
+  return Math.floor(Math.random() * D6_MAX) + D6_MIN
+}
+
+function hasMatchingAdvantageSkill(task: SessionTaskEntity, roleClassId: string) {
+  return task.advantageSkills.some(
+    (advantage) =>
+      advantage.roleSkill.roleClassId === roleClassId &&
+      advantage.benefitType === 'ADVANTAGE',
+  )
+}
+
+function calculateFatigueApplied(input: {
+  rollValue: number
+  isSuccess: boolean
+  fatigueCost: number
+}) {
+  if (input.rollValue === D6_MIN) {
+    return input.fatigueCost + 1
+  }
+
+  if (input.isSuccess) {
+    return Math.floor(input.fatigueCost / 2)
+  }
+
+  return input.fatigueCost
+}
+
 async function buildCreateData(
   session: SessionForAccess,
   data: CreateSessionTaskInput,
@@ -329,6 +370,7 @@ async function buildCreateData(
       taskType: data.taskType ?? template.taskType,
       difficulty: data.difficulty ?? template.difficulty,
       fatigueCost: data.fatigueCost ?? template.fatigueCost,
+      diceDifficulty: data.diceDifficulty ?? template.diceDifficulty,
       isVisibleToParticipants: data.isVisibleToParticipants ?? false,
       requiredItems,
       advantageSkills,
@@ -372,6 +414,7 @@ async function buildCreateData(
       taskType: data.taskType ?? scenarioTask.taskType,
       difficulty: data.difficulty ?? scenarioTask.difficulty,
       fatigueCost: data.fatigueCost ?? scenarioTask.fatigueCost,
+      diceDifficulty: data.diceDifficulty ?? scenarioTask.diceDifficulty,
       isVisibleToParticipants:
         data.isVisibleToParticipants ?? scenarioTask.isVisibleByDefault,
       requiredItems,
@@ -399,6 +442,7 @@ async function buildCreateData(
     taskType: data.taskType ?? TaskType.MAIN,
     difficulty: data.difficulty ?? 1,
     fatigueCost: data.fatigueCost ?? 0,
+    diceDifficulty: data.diceDifficulty ?? null,
     isVisibleToParticipants: data.isVisibleToParticipants ?? false,
     requiredItems,
     advantageSkills,
@@ -570,5 +614,73 @@ export const sessionTasksService = {
     }
 
     return sessionTasksRepository.deleteSkillAdvantage(taskId, roleSkillId)
+  },
+
+  async rollSessionTaskDice(taskId: string, currentUser: CurrentUser) {
+    const task = await sessionTasksRepository.findById(taskId)
+
+    if (!task) {
+      throw new SessionTaskNotFoundError(taskId)
+    }
+
+    assertCanViewTask(task, currentUser)
+    assertSessionIsActive(task.session)
+
+    if (task.diceDifficulty === null) {
+      throw new SessionTaskDiceRollUnavailableError(taskId)
+    }
+
+    if (currentUser.role !== 'PARTICIPANT') {
+      throw new SessionTaskForbiddenError()
+    }
+
+    const participant =
+      await sessionTasksRepository.findParticipantBySessionAndUser(
+        task.sessionId,
+        currentUser.id,
+      )
+
+    if (!participant) {
+      throw new SessionTaskParticipantNotFoundError(taskId)
+    }
+
+    if (!participant.character) {
+      throw new SessionTaskCharacterRequiredError(taskId)
+    }
+
+    const existingRoll = await sessionTasksRepository.findRollByTaskAndParticipant(
+      taskId,
+      participant.id,
+    )
+
+    if (existingRoll) {
+      throw new SessionTaskRollAlreadyExistsError(taskId)
+    }
+
+    const hasAdvantage =
+      participant.character.roleClassId !== null &&
+      hasMatchingAdvantageSkill(task, participant.character.roleClassId)
+
+    const rollValue = rollD6()
+    const advantageRollValue = hasAdvantage ? rollD6() : null
+    const effectiveRoll = Math.max(rollValue, advantageRollValue ?? rollValue)
+    const isSuccess = effectiveRoll > task.diceDifficulty
+    const fatigueApplied = calculateFatigueApplied({
+      rollValue: effectiveRoll,
+      isSuccess,
+      fatigueCost: task.fatigueCost,
+    })
+
+    return sessionTasksRepository.createRollAndApplyFatigue({
+      taskId,
+      participantId: participant.id,
+      characterId: participant.character.id,
+      rollValue,
+      advantageRollValue,
+      effectiveRoll,
+      diceDifficulty: task.diceDifficulty,
+      isSuccess,
+      fatigueApplied,
+    })
   },
 }

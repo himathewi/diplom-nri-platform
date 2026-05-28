@@ -119,6 +119,26 @@ const sessionTaskInclude = {
       createdAt: 'asc' as const,
     },
   },
+  rolls: {
+    include: {
+      sessionParticipant: {
+        include: {
+          user: {
+            select: safeUserSelect,
+          },
+          character: {
+            include: {
+              roleClass: true,
+              stats: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
 } as const
 
 type CreateSessionTaskRepositoryInput = {
@@ -131,6 +151,7 @@ type CreateSessionTaskRepositoryInput = {
   taskType: 'MAIN' | 'SIDE' | 'OPTIONAL'
   difficulty: number
   fatigueCost: number
+  diceDifficulty?: number | null
   isVisibleToParticipants: boolean
   requiredItems: SessionTaskRequiredItemInput[]
   advantageSkills: SessionTaskSkillAdvantageInput[]
@@ -246,6 +267,7 @@ export const sessionTasksRepository = {
           taskType: data.taskType,
           difficulty: data.difficulty,
           fatigueCost: data.fatigueCost,
+          diceDifficulty: data.diceDifficulty ?? null,
           isVisibleToParticipants: data.isVisibleToParticipants,
         },
       })
@@ -312,6 +334,9 @@ export const sessionTasksRepository = {
         }),
         ...(data.fatigueCost !== undefined && {
           fatigueCost: data.fatigueCost,
+        }),
+        ...(data.diceDifficulty !== undefined && {
+          diceDifficulty: data.diceDifficulty,
         }),
         ...(data.isVisibleToParticipants !== undefined && {
           isVisibleToParticipants: data.isVisibleToParticipants,
@@ -429,6 +454,97 @@ export const sessionTasksRepository = {
         },
       },
       include: roleSkillInclude,
+    })
+  },
+
+  findParticipantBySessionAndUser(sessionId: string, userId: string) {
+    return prisma.sessionParticipant.findUnique({
+      where: {
+        sessionId_userId: {
+          sessionId,
+          userId,
+        },
+      },
+      include: {
+        character: {
+          include: {
+            roleClass: {
+              include: {
+                skills: true,
+              },
+            },
+          },
+        },
+      },
+    })
+  },
+
+  findRollByTaskAndParticipant(taskId: string, participantId: string) {
+    return prisma.sessionTaskRoll.findUnique({
+      where: {
+        sessionTaskId_sessionParticipantId: {
+          sessionTaskId: taskId,
+          sessionParticipantId: participantId,
+        },
+      },
+    })
+  },
+
+  createRollAndApplyFatigue(data: {
+    taskId: string
+    participantId: string
+    characterId: string
+    rollValue: number
+    advantageRollValue?: number | null
+    effectiveRoll: number
+    diceDifficulty: number
+    isSuccess: boolean
+    fatigueApplied: number
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const roll = await tx.sessionTaskRoll.create({
+        data: {
+          sessionTaskId: data.taskId,
+          sessionParticipantId: data.participantId,
+          rollValue: data.rollValue,
+          advantageRollValue: data.advantageRollValue ?? null,
+          effectiveRoll: data.effectiveRoll,
+          diceDifficulty: data.diceDifficulty,
+          isSuccess: data.isSuccess,
+          fatigueApplied: data.fatigueApplied,
+        },
+        include: {
+          sessionTask: {
+            include: sessionTaskInclude,
+          },
+          sessionParticipant: {
+            include: {
+              user: {
+                select: safeUserSelect,
+              },
+              character: {
+                include: {
+                  roleClass: true,
+                  stats: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      await tx.character.update({
+        where: {
+          id: data.characterId,
+        },
+        data: {
+          currentFatigue: {
+            increment: data.fatigueApplied,
+          },
+        },
+      })
+
+      return roll
     })
   },
 }

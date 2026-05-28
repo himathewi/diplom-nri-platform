@@ -60,6 +60,7 @@ export const createScenarioTaskSchema = z
 
     difficulty: z.number().int().min(1).max(5).optional(),
     fatigueCost: z.number().int().min(0).optional(),
+    diceDifficulty: z.number().int().min(2).max(6).nullable().optional(),
 
     expectedResult: z.string().min(1).nullable().optional(),
     moderatorNotes: z.string().min(1).nullable().optional(),

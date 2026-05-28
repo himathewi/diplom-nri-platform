@@ -88,3 +88,31 @@ export class SessionTaskSkillAdvantageNotFoundError extends Error {
     this.name = 'SessionTaskSkillAdvantageNotFoundError'
   }
 }
+
+export class SessionTaskDiceRollUnavailableError extends Error {
+  constructor(taskId: string) {
+    super(`Session task ${taskId} does not have a dice roll configured`)
+    this.name = 'SessionTaskDiceRollUnavailableError'
+  }
+}
+
+export class SessionTaskRollAlreadyExistsError extends Error {
+  constructor(taskId: string) {
+    super(`Current participant has already rolled for session task ${taskId}`)
+    this.name = 'SessionTaskRollAlreadyExistsError'
+  }
+}
+
+export class SessionTaskParticipantNotFoundError extends Error {
+  constructor(taskId: string) {
+    super(`Current user is not a participant for session task ${taskId}`)
+    this.name = 'SessionTaskParticipantNotFoundError'
+  }
+}
+
+export class SessionTaskCharacterRequiredError extends Error {
+  constructor(taskId: string) {
+    super(`Current participant needs a character profile to roll for session task ${taskId}`)
+    this.name = 'SessionTaskCharacterRequiredError'
+  }
+}

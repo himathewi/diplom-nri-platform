@@ -18,9 +18,13 @@ import {
 
 import {
   SessionTaskForbiddenError,
+  SessionTaskCharacterRequiredError,
+  SessionTaskDiceRollUnavailableError,
   SessionTaskItemNotFoundError,
   SessionTaskNotFoundError,
+  SessionTaskParticipantNotFoundError,
   SessionTaskRequiredItemNotFoundError,
+  SessionTaskRollAlreadyExistsError,
   SessionTaskScenarioMismatchError,
   SessionTaskScenarioTaskNotFoundError,
   SessionTaskSessionFinishedError,
@@ -44,6 +48,7 @@ function handleSessionTaskError(error: unknown, reply: FastifyReply) {
     || error instanceof SessionTaskRequiredItemNotFoundError
     || error instanceof SessionTaskSkillNotFoundError
     || error instanceof SessionTaskSkillAdvantageNotFoundError
+    || error instanceof SessionTaskParticipantNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
@@ -61,6 +66,9 @@ function handleSessionTaskError(error: unknown, reply: FastifyReply) {
     || error instanceof SessionTaskScenarioMismatchError
     || error instanceof SessionTaskSourceConflictError
     || error instanceof SessionTaskTitleRequiredError
+    || error instanceof SessionTaskDiceRollUnavailableError
+    || error instanceof SessionTaskRollAlreadyExistsError
+    || error instanceof SessionTaskCharacterRequiredError
   ) {
     return reply.status(409).send({
       message: error.message,
@@ -353,6 +361,42 @@ export async function sessionTasksRoutes(app: FastifyInstance) {
         )
 
         return reply.status(204).send()
+      } catch (error) {
+        return handleSessionTaskError(error, reply)
+      }
+    },
+  )
+
+  app.post(
+    '/session-tasks/:id/roll',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = sessionTaskParamsSchema.safeParse(request.params)
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const roll = await sessionTasksService.rollSessionTaskDice(
+          paramsParsed.data.id,
+          currentUser,
+        )
+
+        return reply.status(201).send(roll)
       } catch (error) {
         return handleSessionTaskError(error, reply)
       }

@@ -58,6 +58,7 @@ export const createSessionTaskSchema = z
     taskType: z.nativeEnum(TaskType).optional(),
     difficulty: z.number().int().min(1).max(10).optional(),
     fatigueCost: z.number().int().min(0).max(10).optional(),
+    diceDifficulty: z.number().int().min(2).max(6).nullable().optional(),
     isVisibleToParticipants: z.boolean().optional(),
 
     requiredItems: z.array(sessionTaskRequiredItemSchema).optional(),
@@ -74,6 +75,7 @@ export const updateSessionTaskSchema = z
     status: z.nativeEnum(SessionTaskStatus).optional(),
     difficulty: z.number().int().min(1).max(10).optional(),
     fatigueCost: z.number().int().min(0).max(10).optional(),
+    diceDifficulty: z.number().int().min(2).max(6).nullable().optional(),
     isVisibleToParticipants: z.boolean().optional(),
     result: z.string().nullable().optional(),
   })

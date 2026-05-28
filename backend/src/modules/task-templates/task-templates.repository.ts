@@ -146,6 +146,7 @@ export const taskTemplatesRepository = {
         createdById,
         difficulty: data.difficulty,
         fatigueCost: data.fatigueCost,
+        diceDifficulty: data.diceDifficulty ?? null,
         expectedResult: data.expectedResult ?? null,
         moderatorNotes: data.moderatorNotes ?? null,
         isPublic: data.isPublic,
@@ -178,6 +179,9 @@ export const taskTemplatesRepository = {
         }),
         ...(data.fatigueCost !== undefined && {
           fatigueCost: data.fatigueCost,
+        }),
+        ...(data.diceDifficulty !== undefined && {
+          diceDifficulty: data.diceDifficulty,
         }),
         ...(data.expectedResult !== undefined && {
           expectedResult: data.expectedResult,

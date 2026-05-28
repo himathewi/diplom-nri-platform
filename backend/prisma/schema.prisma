@@ -271,6 +271,7 @@ model ScenarioTask {
 
   difficulty         Int     @default(1)
   fatigueCost        Int     @default(0)
+  diceDifficulty     Int?
   expectedResult     String?
   moderatorNotes     String?
   isVisibleByDefault Boolean @default(false)
@@ -346,6 +347,7 @@ model TaskTemplate {
 
   difficulty     Int     @default(1)
   fatigueCost    Int     @default(0)
+  diceDifficulty Int?
   expectedResult String?
   moderatorNotes String?
   isPublic       Boolean @default(false)
@@ -450,6 +452,7 @@ model SessionParticipant {
 
   items     ParticipantItem[]
   decisions Decision[]
+  taskRolls SessionTaskRoll[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -584,6 +587,7 @@ model SessionTask {
 
   difficulty              Int     @default(1)
   fatigueCost             Int     @default(0)
+  diceDifficulty          Int?
   isVisibleToParticipants Boolean @default(false)
   result                  String?
 
@@ -594,6 +598,7 @@ model SessionTask {
   requiredItems   SessionTaskRequiredItem[]
   advantageSkills SessionTaskSkillAdvantage[]
   decisions       Decision[]
+  rolls           SessionTaskRoll[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -641,6 +646,29 @@ model SessionTaskSkillAdvantage {
   @@unique([sessionTaskId, roleSkillId])
   @@index([sessionTaskId])
   @@index([roleSkillId])
+}
+
+model SessionTaskRoll {
+  id                   String @id @default(uuid())
+  sessionTaskId        String
+  sessionParticipantId String
+
+  rollValue          Int
+  advantageRollValue Int?
+  effectiveRoll      Int
+  diceDifficulty     Int
+  isSuccess          Boolean
+  fatigueApplied     Int
+
+  sessionTask        SessionTask        @relation(fields: [sessionTaskId], references: [id], onDelete: Cascade)
+  sessionParticipant SessionParticipant @relation(fields: [sessionParticipantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionTaskId, sessionParticipantId])
+  @@index([sessionTaskId])
+  @@index([sessionParticipantId])
 }
 
 model SessionEvent {
