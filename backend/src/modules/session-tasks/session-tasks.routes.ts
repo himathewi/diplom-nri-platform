@@ -7,9 +7,11 @@ import {
 
 import {
   addSessionTaskRequiredItemSchema,
+  addSessionTaskSkillAdvantageSchema,
   createSessionTaskSchema,
   sessionTaskParamsSchema,
   sessionTaskRequiredItemParamsSchema,
+  sessionTaskSkillAdvantageParamsSchema,
   sessionTaskSessionParamsSchema,
   updateSessionTaskSchema,
 } from './session-tasks.schemas'
@@ -23,6 +25,8 @@ import {
   SessionTaskScenarioTaskNotFoundError,
   SessionTaskSessionFinishedError,
   SessionTaskSessionNotFoundError,
+  SessionTaskSkillAdvantageNotFoundError,
+  SessionTaskSkillNotFoundError,
   SessionTaskSourceConflictError,
   SessionTaskTemplateNotFoundError,
   SessionTaskTitleRequiredError,
@@ -38,6 +42,8 @@ function handleSessionTaskError(error: unknown, reply: FastifyReply) {
     || error instanceof SessionTaskScenarioTaskNotFoundError
     || error instanceof SessionTaskItemNotFoundError
     || error instanceof SessionTaskRequiredItemNotFoundError
+    || error instanceof SessionTaskSkillNotFoundError
+    || error instanceof SessionTaskSkillAdvantageNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
@@ -343,6 +349,92 @@ export async function sessionTasksRoutes(app: FastifyInstance) {
         await sessionTasksService.deleteRequiredItem(
           paramsParsed.data.id,
           paramsParsed.data.itemId,
+          currentUser,
+        )
+
+        return reply.status(204).send()
+      } catch (error) {
+        return handleSessionTaskError(error, reply)
+      }
+    },
+  )
+
+  app.post(
+    '/session-tasks/:id/skill-advantages',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = sessionTaskParamsSchema.safeParse(request.params)
+      const bodyParsed = addSessionTaskSkillAdvantageSchema.safeParse(
+        request.body,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const advantage = await sessionTasksService.addSkillAdvantage(
+          paramsParsed.data.id,
+          bodyParsed.data,
+          currentUser,
+        )
+
+        return reply.status(201).send(advantage)
+      } catch (error) {
+        return handleSessionTaskError(error, reply)
+      }
+    },
+  )
+
+  app.delete(
+    '/session-tasks/:id/skill-advantages/:roleSkillId',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = sessionTaskSkillAdvantageParamsSchema.safeParse(
+        request.params,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        await sessionTasksService.deleteSkillAdvantage(
+          paramsParsed.data.id,
+          paramsParsed.data.roleSkillId,
           currentUser,
         )
 

@@ -8,9 +8,12 @@ import {
 import {
   allowRoleClassForSessionSchema,
   createRoleClassSchema,
+  createRoleClassSkillSchema,
   roleClassParamsSchema,
+  roleClassSkillParamsSchema,
   sessionParamsSchema,
   sessionRoleClassParamsSchema,
+  updateRoleClassSkillSchema,
   updateRoleClassSchema,
 } from './role-classes.schemas'
 
@@ -23,6 +26,8 @@ import {
   RoleClassInUseError,
   RoleClassNotAllowedError,
   RoleClassNotFoundError,
+  RoleClassSkillAlreadyExistsError,
+  RoleClassSkillNotFoundError,
   RoleClassValidationError,
   SessionForbiddenError,
   SessionNotFoundError,
@@ -31,6 +36,7 @@ import {
 function handleRoleClassesError(error: unknown, reply: any) {
   if (
     error instanceof RoleClassNotFoundError
+    || error instanceof RoleClassSkillNotFoundError
     || error instanceof SessionNotFoundError
     || error instanceof RoleClassNotAllowedError
   ) {
@@ -51,6 +57,7 @@ function handleRoleClassesError(error: unknown, reply: any) {
   if (
     error instanceof RoleClassValidationError
     || error instanceof RoleClassAlreadyAllowedError
+    || error instanceof RoleClassSkillAlreadyExistsError
   ) {
     return reply.status(400).send({
       message: error.message,
@@ -208,6 +215,108 @@ export async function roleClassesRoutes(app: FastifyInstance) {
     try {
       await roleClassesService.deleteRoleClass(
         paramsParsed.data.id,
+        currentUser,
+      )
+
+      return reply.status(204).send()
+    } catch (error) {
+      return handleRoleClassesError(error, reply)
+    }
+  })
+
+  app.post('/role-classes/:id/skills', async (request, reply) => {
+    const paramsParsed = roleClassParamsSchema.safeParse(request.params)
+    const bodyParsed = createRoleClassSkillSchema.safeParse(request.body)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
+    const currentUser = getAuthorizedUser(request, reply)
+
+    if (!currentUser) {
+      return
+    }
+
+    try {
+      const skill = await roleClassesService.createRoleClassSkill(
+        paramsParsed.data.id,
+        bodyParsed.data,
+        currentUser,
+      )
+
+      return reply.status(201).send(skill)
+    } catch (error) {
+      return handleRoleClassesError(error, reply)
+    }
+  })
+
+  app.patch('/role-classes/:id/skills/:skillId', async (request, reply) => {
+    const paramsParsed = roleClassSkillParamsSchema.safeParse(request.params)
+    const bodyParsed = updateRoleClassSkillSchema.safeParse(request.body)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
+    const currentUser = getAuthorizedUser(request, reply)
+
+    if (!currentUser) {
+      return
+    }
+
+    try {
+      return await roleClassesService.updateRoleClassSkill(
+        paramsParsed.data.id,
+        paramsParsed.data.skillId,
+        bodyParsed.data,
+        currentUser,
+      )
+    } catch (error) {
+      return handleRoleClassesError(error, reply)
+    }
+  })
+
+  app.delete('/role-classes/:id/skills/:skillId', async (request, reply) => {
+    const paramsParsed = roleClassSkillParamsSchema.safeParse(request.params)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    const currentUser = getAuthorizedUser(request, reply)
+
+    if (!currentUser) {
+      return
+    }
+
+    try {
+      await roleClassesService.deleteRoleClassSkill(
+        paramsParsed.data.id,
+        paramsParsed.data.skillId,
         currentUser,
       )
 

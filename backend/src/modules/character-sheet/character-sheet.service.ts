@@ -34,6 +34,14 @@ export type RoleClassDto = {
   id: string
   name: string
   description: string | null
+  skills: RoleClassSkillDto[]
+}
+
+export type RoleClassSkillDto = {
+  id: string
+  roleClassId: string
+  name: string
+  description: string | null
 }
 
 export type ScenarioDirectionDto = {
@@ -202,6 +210,12 @@ function toRoleClassDto(
     id: roleClass.id,
     name: roleClass.name,
     description: roleClass.description,
+    skills: roleClass.skills.map((skill) => ({
+      id: skill.id,
+      roleClassId: skill.roleClassId,
+      name: skill.name,
+      description: skill.description,
+    })),
   }
 }
 

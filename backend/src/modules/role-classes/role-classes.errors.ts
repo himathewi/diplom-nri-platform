@@ -33,6 +33,20 @@ export class RoleClassNotAllowedError extends Error {
   }
 }
 
+export class RoleClassSkillNotFoundError extends Error {
+  constructor(skillId: string) {
+    super(`Role class skill with id "${skillId}" was not found`)
+    this.name = 'RoleClassSkillNotFoundError'
+  }
+}
+
+export class RoleClassSkillAlreadyExistsError extends Error {
+  constructor(roleClassId: string, skillName: string) {
+    super(`Skill "${skillName}" already exists for role class "${roleClassId}"`)
+    this.name = 'RoleClassSkillAlreadyExistsError'
+  }
+}
+
 export class RoleClassInUseError extends Error {
   constructor(roleClassId: string) {
     super(`Role class "${roleClassId}" is already used and can not be deleted`)

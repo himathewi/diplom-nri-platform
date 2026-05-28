@@ -1,4 +1,4 @@
-import { SessionTaskStatus, TaskType } from '@prisma/client'
+import { SessionTaskStatus, SkillBenefitType, TaskType } from '@prisma/client'
 import { z } from 'zod'
 
 const nullableStringSchema = z.string().nullable().optional()
@@ -22,10 +22,26 @@ export const sessionTaskRequiredItemParamsSchema = z
   })
   .strict()
 
+export const sessionTaskSkillAdvantageParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+    roleSkillId: z.string().uuid(),
+  })
+  .strict()
+
 export const sessionTaskRequiredItemSchema = z
   .object({
     itemId: z.string().uuid(),
     quantity: z.number().int().min(1).default(1),
+    notes: z.string().nullable().optional(),
+  })
+  .strict()
+
+export const sessionTaskSkillAdvantageSchema = z
+  .object({
+    roleSkillId: z.string().uuid(),
+    benefitType: z.nativeEnum(SkillBenefitType).default(SkillBenefitType.ADVANTAGE),
+    fatigueCostReduction: z.number().int().min(0).max(10).default(0),
     notes: z.string().nullable().optional(),
   })
   .strict()
@@ -45,6 +61,7 @@ export const createSessionTaskSchema = z
     isVisibleToParticipants: z.boolean().optional(),
 
     requiredItems: z.array(sessionTaskRequiredItemSchema).optional(),
+    advantageSkills: z.array(sessionTaskSkillAdvantageSchema).optional(),
   })
   .strict()
 
@@ -63,6 +80,8 @@ export const updateSessionTaskSchema = z
   .strict()
 
 export const addSessionTaskRequiredItemSchema = sessionTaskRequiredItemSchema
+export const addSessionTaskSkillAdvantageSchema =
+  sessionTaskSkillAdvantageSchema
 
 export type SessionTaskParamsInput = z.infer<typeof sessionTaskParamsSchema>
 
@@ -74,8 +93,16 @@ export type SessionTaskRequiredItemParamsInput = z.infer<
   typeof sessionTaskRequiredItemParamsSchema
 >
 
+export type SessionTaskSkillAdvantageParamsInput = z.infer<
+  typeof sessionTaskSkillAdvantageParamsSchema
+>
+
 export type SessionTaskRequiredItemInput = z.infer<
   typeof sessionTaskRequiredItemSchema
+>
+
+export type SessionTaskSkillAdvantageInput = z.infer<
+  typeof sessionTaskSkillAdvantageSchema
 >
 
 export type CreateSessionTaskInput = z.infer<typeof createSessionTaskSchema>
@@ -84,4 +111,8 @@ export type UpdateSessionTaskInput = z.infer<typeof updateSessionTaskSchema>
 
 export type AddSessionTaskRequiredItemInput = z.infer<
   typeof addSessionTaskRequiredItemSchema
+>
+
+export type AddSessionTaskSkillAdvantageInput = z.infer<
+  typeof addSessionTaskSkillAdvantageSchema
 >

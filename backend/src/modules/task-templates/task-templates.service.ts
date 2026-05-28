@@ -6,12 +6,15 @@ import {
   TaskTemplateItemNotFoundError,
   TaskTemplateNotFoundError,
   TaskTemplateRequiredItemNotFoundError,
+  TaskTemplateSkillAdvantageNotFoundError,
+  TaskTemplateSkillNotFoundError,
 } from './task-templates.errors'
 
 import { taskTemplatesRepository } from './task-templates.repository'
 
 import type {
   AddTaskTemplateRequiredItemInput,
+  AddTaskTemplateSkillAdvantageInput,
   CreateTaskTemplateInput,
   UpdateTaskTemplateInput,
 } from './task-templates.schemas'
@@ -97,12 +100,53 @@ function canReadItem(
   return item.isPublic
 }
 
+function canReadRoleSkill(
+  skill: {
+    roleClass: {
+      isPublic: boolean
+      isActive: boolean
+      createdById: string | null
+    }
+  },
+  currentUser: CurrentUser,
+) {
+  if (!skill.roleClass.isActive) {
+    return false
+  }
+
+  if (isAdmin(currentUser)) {
+    return true
+  }
+
+  if (isModerator(currentUser)) {
+    return (
+      skill.roleClass.isPublic
+      || skill.roleClass.createdById === currentUser.id
+    )
+  }
+
+  return false
+}
+
 async function assertItemCanBeUsed(itemId: string, currentUser: CurrentUser) {
   const item = await taskTemplatesRepository.findItemById(itemId)
 
   if (!item || !canReadItem(item, currentUser)) {
     throw new TaskTemplateItemNotFoundError(itemId)
   }
+}
+
+async function assertRoleSkillCanBeUsed(
+  roleSkillId: string,
+  currentUser: CurrentUser,
+) {
+  const skill = await taskTemplatesRepository.findRoleSkillById(roleSkillId)
+
+  if (!skill || !canReadRoleSkill(skill, currentUser)) {
+    throw new TaskTemplateSkillNotFoundError(roleSkillId)
+  }
+
+  return skill
 }
 
 export const taskTemplatesService = {
@@ -245,5 +289,62 @@ export const taskTemplatesService = {
     }
 
     return taskTemplatesRepository.deleteRequiredItem(taskTemplateId, itemId)
+  },
+
+  async addSkillAdvantage(
+    taskTemplateId: string,
+    data: AddTaskTemplateSkillAdvantageInput,
+    currentUser: CurrentUser,
+  ) {
+    assertCanManageTaskTemplates(currentUser)
+
+    const taskTemplate = await taskTemplatesRepository.findById(taskTemplateId)
+
+    if (!taskTemplate) {
+      throw new TaskTemplateNotFoundError(taskTemplateId)
+    }
+
+    if (!canManageTaskTemplate(taskTemplate, currentUser)) {
+      throw new TaskTemplateForbiddenError()
+    }
+
+    await assertRoleSkillCanBeUsed(data.roleSkillId, currentUser)
+
+    return taskTemplatesRepository.upsertSkillAdvantage(taskTemplateId, data)
+  },
+
+  async deleteSkillAdvantage(
+    taskTemplateId: string,
+    roleSkillId: string,
+    currentUser: CurrentUser,
+  ) {
+    assertCanManageTaskTemplates(currentUser)
+
+    const taskTemplate = await taskTemplatesRepository.findById(taskTemplateId)
+
+    if (!taskTemplate) {
+      throw new TaskTemplateNotFoundError(taskTemplateId)
+    }
+
+    if (!canManageTaskTemplate(taskTemplate, currentUser)) {
+      throw new TaskTemplateForbiddenError()
+    }
+
+    const advantage = await taskTemplatesRepository.findSkillAdvantage(
+      taskTemplateId,
+      roleSkillId,
+    )
+
+    if (!advantage) {
+      throw new TaskTemplateSkillAdvantageNotFoundError(
+        taskTemplateId,
+        roleSkillId,
+      )
+    }
+
+    return taskTemplatesRepository.deleteSkillAdvantage(
+      taskTemplateId,
+      roleSkillId,
+    )
   },
 }

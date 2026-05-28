@@ -68,9 +68,23 @@ export class SessionTaskItemNotFoundError extends Error {
   }
 }
 
+export class SessionTaskSkillNotFoundError extends Error {
+  constructor(skillId: string) {
+    super(`Role class skill with id ${skillId} not found`)
+    this.name = 'SessionTaskSkillNotFoundError'
+  }
+}
+
 export class SessionTaskRequiredItemNotFoundError extends Error {
   constructor(taskId: string, itemId: string) {
     super(`Required item ${itemId} for session task ${taskId} not found`)
     this.name = 'SessionTaskRequiredItemNotFoundError'
+  }
+}
+
+export class SessionTaskSkillAdvantageNotFoundError extends Error {
+  constructor(taskId: string, roleSkillId: string) {
+    super(`Skill advantage ${roleSkillId} for session task ${taskId} not found`)
+    this.name = 'SessionTaskSkillAdvantageNotFoundError'
   }
 }

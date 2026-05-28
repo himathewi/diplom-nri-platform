@@ -2,8 +2,19 @@ import { prisma } from '../../lib/prisma'
 
 import type {
   CreateRoleClassInput,
+  CreateRoleClassSkillInput,
+  UpdateRoleClassSkillInput,
   UpdateRoleClassInput,
 } from './role-classes.schemas'
+
+const roleClassSkillSelect = {
+  id: true,
+  roleClassId: true,
+  name: true,
+  description: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
 
 const roleClassSelect = {
   id: true,
@@ -18,6 +29,12 @@ const roleClassSelect = {
       email: true,
       name: true,
       role: true,
+    },
+  },
+  skills: {
+    select: roleClassSkillSelect,
+    orderBy: {
+      name: 'asc' as const,
     },
   },
 } as const
@@ -113,6 +130,15 @@ export const roleClassesRepository = {
         createdById,
         isPublic,
         isActive: data.isActive ?? true,
+        skills:
+          data.skills && data.skills.length > 0
+            ? {
+                create: data.skills.map((skill) => ({
+                  name: skill.name,
+                  description: skill.description ?? null,
+                })),
+              }
+            : undefined,
       },
       select: roleClassSelect,
     })
@@ -166,6 +192,69 @@ export const roleClassesRepository = {
       where: {
         roleClassId,
       },
+    })
+  },
+
+  findSkillById(skillId: string) {
+    return prisma.roleClassSkill.findUnique({
+      where: {
+        id: skillId,
+      },
+      include: {
+        roleClass: {
+          select: roleClassSelect,
+        },
+      },
+    })
+  },
+
+  findSkillByName(roleClassId: string, name: string) {
+    return prisma.roleClassSkill.findFirst({
+      where: {
+        roleClassId,
+        name: {
+          equals: name,
+          mode: 'insensitive',
+        },
+      },
+      select: roleClassSkillSelect,
+    })
+  },
+
+  createSkill(roleClassId: string, data: CreateRoleClassSkillInput) {
+    return prisma.roleClassSkill.create({
+      data: {
+        roleClassId,
+        name: data.name,
+        description: data.description ?? null,
+      },
+      select: roleClassSkillSelect,
+    })
+  },
+
+  updateSkill(skillId: string, data: UpdateRoleClassSkillInput) {
+    return prisma.roleClassSkill.update({
+      where: {
+        id: skillId,
+      },
+      data: {
+        ...(data.name !== undefined && {
+          name: data.name,
+        }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+      },
+      select: roleClassSkillSelect,
+    })
+  },
+
+  deleteSkill(skillId: string) {
+    return prisma.roleClassSkill.delete({
+      where: {
+        id: skillId,
+      },
+      select: roleClassSkillSelect,
     })
   },
 

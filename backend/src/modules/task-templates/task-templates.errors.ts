@@ -30,6 +30,20 @@ export class TaskTemplateItemNotFoundError extends Error {
   }
 }
 
+export class TaskTemplateSkillNotFoundError extends Error {
+  constructor(skillId: string) {
+    super(`Role class skill with id "${skillId}" not found`)
+    this.name = 'TaskTemplateSkillNotFoundError'
+  }
+}
+
+export class TaskTemplateSkillAdvantageNotFoundError extends Error {
+  constructor(taskTemplateId: string, roleSkillId: string) {
+    super(`Skill advantage "${roleSkillId}" not found for task template "${taskTemplateId}"`)
+    this.name = 'TaskTemplateSkillAdvantageNotFoundError'
+  }
+}
+
 export class TaskTemplateRequiredItemNotFoundError extends Error {
   constructor(taskTemplateId: string, itemId: string) {
     super(

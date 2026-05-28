@@ -6,6 +6,8 @@ import {
   RoleClassForbiddenError,
   RoleClassNotAllowedError,
   RoleClassNotFoundError,
+  RoleClassSkillAlreadyExistsError,
+  RoleClassSkillNotFoundError,
   RoleClassValidationError,
   SessionForbiddenError,
   SessionNotFoundError,
@@ -16,6 +18,8 @@ import { roleClassesRepository } from './role-classes.repository'
 import type {
   AllowRoleClassForSessionInput,
   CreateRoleClassInput,
+  CreateRoleClassSkillInput,
+  UpdateRoleClassSkillInput,
   UpdateRoleClassInput,
 } from './role-classes.schemas'
 
@@ -103,6 +107,39 @@ async function assertUniqueRoleClassName(name: string, currentId?: string) {
   }
 }
 
+async function assertUniqueRoleClassSkillName(
+  roleClassId: string,
+  name: string,
+  currentSkillId?: string,
+) {
+  const existing = await roleClassesRepository.findSkillByName(roleClassId, name)
+
+  if (existing && existing.id !== currentSkillId) {
+    throw new RoleClassSkillAlreadyExistsError(roleClassId, name)
+  }
+}
+
+async function assertUniqueRoleClassSkillNames(
+  roleClassId: string,
+  skills: CreateRoleClassInput['skills'],
+) {
+  if (!skills || skills.length === 0) {
+    return
+  }
+
+  const normalizedNames = new Set<string>()
+
+  for (const skill of skills) {
+    const normalizedName = skill.name.trim().toLowerCase()
+
+    if (normalizedNames.has(normalizedName)) {
+      throw new RoleClassSkillAlreadyExistsError(roleClassId, skill.name)
+    }
+
+    normalizedNames.add(normalizedName)
+  }
+}
+
 function canReadRoleClass(
   roleClass: {
     isPublic: boolean
@@ -124,6 +161,44 @@ function canManageRoleClass(
   currentUser: CurrentUser,
 ) {
   return currentUser.role === 'ADMIN' || roleClass.createdById === currentUser.id
+}
+
+async function assertRoleClassCanBeManaged(
+  roleClassId: string,
+  currentUser: CurrentUser,
+) {
+  assertCanManageCatalog(currentUser)
+
+  const roleClass = await roleClassesRepository.findById(roleClassId)
+
+  if (!roleClass) {
+    throw new RoleClassNotFoundError(roleClassId)
+  }
+
+  if (!canManageRoleClass(roleClass, currentUser)) {
+    throw new RoleClassForbiddenError()
+  }
+
+  return roleClass
+}
+
+async function assertRoleClassSkillCanBeManaged(
+  skillId: string,
+  currentUser: CurrentUser,
+) {
+  assertCanManageCatalog(currentUser)
+
+  const skill = await roleClassesRepository.findSkillById(skillId)
+
+  if (!skill) {
+    throw new RoleClassSkillNotFoundError(skillId)
+  }
+
+  if (!canManageRoleClass(skill.roleClass, currentUser)) {
+    throw new RoleClassForbiddenError()
+  }
+
+  return skill
 }
 
 function assertRoleClassCanBeUsedInSession(
@@ -179,6 +254,7 @@ export const roleClassesService = {
   ) {
     assertCanManageCatalog(currentUser)
     await assertUniqueRoleClassName(data.name)
+    await assertUniqueRoleClassSkillNames('new', data.skills)
 
     return roleClassesRepository.create(
       data,
@@ -229,6 +305,50 @@ export const roleClassesService = {
     }
 
     return roleClassesRepository.deactivate(roleClassId)
+  },
+
+  async createRoleClassSkill(
+    roleClassId: string,
+    data: CreateRoleClassSkillInput,
+    currentUser: CurrentUser,
+  ) {
+    await assertRoleClassCanBeManaged(roleClassId, currentUser)
+    await assertUniqueRoleClassSkillName(roleClassId, data.name)
+
+    return roleClassesRepository.createSkill(roleClassId, data)
+  },
+
+  async updateRoleClassSkill(
+    roleClassId: string,
+    skillId: string,
+    data: UpdateRoleClassSkillInput,
+    currentUser: CurrentUser,
+  ) {
+    const skill = await assertRoleClassSkillCanBeManaged(skillId, currentUser)
+
+    if (skill.roleClassId !== roleClassId) {
+      throw new RoleClassSkillNotFoundError(skillId)
+    }
+
+    if (data.name !== undefined) {
+      await assertUniqueRoleClassSkillName(roleClassId, data.name, skillId)
+    }
+
+    return roleClassesRepository.updateSkill(skillId, data)
+  },
+
+  async deleteRoleClassSkill(
+    roleClassId: string,
+    skillId: string,
+    currentUser: CurrentUser,
+  ) {
+    const skill = await assertRoleClassSkillCanBeManaged(skillId, currentUser)
+
+    if (skill.roleClassId !== roleClassId) {
+      throw new RoleClassSkillNotFoundError(skillId)
+    }
+
+    return roleClassesRepository.deleteSkill(skillId)
   },
 
   async getSessionRoleClasses(sessionId: string, currentUser: CurrentUser) {

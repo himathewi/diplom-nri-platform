@@ -73,6 +73,12 @@ enum InvitationStatus {
   REVOKED
 }
 
+enum SkillBenefitType {
+  ADVANTAGE
+  REDUCE_FATIGUE
+  WAIVE_FATIGUE
+}
+
 model User {
   id       String   @id @default(uuid())
   email    String   @unique
@@ -110,6 +116,7 @@ model RoleClass {
 
   characters      Character[]
   allowedSessions SessionAllowedRoleClass[]
+  skills          RoleClassSkill[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,6 +124,25 @@ model RoleClass {
   @@index([createdById])
   @@index([isPublic])
   @@index([isActive])
+}
+
+model RoleClassSkill {
+  id          String  @id @default(uuid())
+  roleClassId String
+  name        String
+  description String?
+
+  roleClass RoleClass @relation(fields: [roleClassId], references: [id], onDelete: Cascade)
+
+  taskTemplateAdvantages TaskTemplateSkillAdvantage[]
+  scenarioTaskAdvantages ScenarioTaskSkillAdvantage[]
+  sessionTaskAdvantages  SessionTaskSkillAdvantage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleClassId, name])
+  @@index([roleClassId])
 }
 
 model Character {
@@ -256,8 +282,9 @@ model ScenarioTask {
   createdBy      User?         @relation("ScenarioTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   sourceTemplate TaskTemplate? @relation("ScenarioTaskSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
 
-  sessionTasks  SessionTask[]
-  requiredItems ScenarioTaskRequiredItem[]
+  sessionTasks    SessionTask[]
+  requiredItems   ScenarioTaskRequiredItem[]
+  advantageSkills ScenarioTaskSkillAdvantage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -288,6 +315,26 @@ model ScenarioTaskRequiredItem {
   @@index([itemId])
 }
 
+model ScenarioTaskSkillAdvantage {
+  id          String @id @default(uuid())
+  taskId      String
+  roleSkillId String
+
+  benefitType          SkillBenefitType @default(ADVANTAGE)
+  fatigueCostReduction Int              @default(0)
+  notes                String?
+
+  task      ScenarioTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  roleSkill RoleClassSkill @relation(fields: [roleSkillId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskId, roleSkillId])
+  @@index([taskId])
+  @@index([roleSkillId])
+}
+
 model TaskTemplate {
   id          String   @id @default(uuid())
   title       String
@@ -307,9 +354,10 @@ model TaskTemplate {
   direction ScenarioDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
   createdBy User?              @relation("TaskTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  requiredItems TaskTemplateRequiredItem[]
-  scenarioTasks ScenarioTask[]             @relation("ScenarioTaskSourceTemplate")
-  sessionTasks  SessionTask[]
+  requiredItems   TaskTemplateRequiredItem[]
+  advantageSkills TaskTemplateSkillAdvantage[]
+  scenarioTasks   ScenarioTask[]               @relation("ScenarioTaskSourceTemplate")
+  sessionTasks    SessionTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -337,6 +385,26 @@ model TaskTemplateRequiredItem {
   @@unique([taskTemplateId, itemId])
   @@index([taskTemplateId])
   @@index([itemId])
+}
+
+model TaskTemplateSkillAdvantage {
+  id             String @id @default(uuid())
+  taskTemplateId String
+  roleSkillId    String
+
+  benefitType          SkillBenefitType @default(ADVANTAGE)
+  fatigueCostReduction Int              @default(0)
+  notes                String?
+
+  taskTemplate TaskTemplate   @relation(fields: [taskTemplateId], references: [id], onDelete: Cascade)
+  roleSkill    RoleClassSkill @relation(fields: [roleSkillId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskTemplateId, roleSkillId])
+  @@index([taskTemplateId])
+  @@index([roleSkillId])
 }
 
 model GameSession {
@@ -523,8 +591,9 @@ model SessionTask {
   scenarioTask   ScenarioTask? @relation(fields: [scenarioTaskId], references: [id], onDelete: SetNull)
   sourceTemplate TaskTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
 
-  requiredItems SessionTaskRequiredItem[]
-  decisions     Decision[]
+  requiredItems   SessionTaskRequiredItem[]
+  advantageSkills SessionTaskSkillAdvantage[]
+  decisions       Decision[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -552,6 +621,26 @@ model SessionTaskRequiredItem {
   @@unique([sessionTaskId, itemId])
   @@index([sessionTaskId])
   @@index([itemId])
+}
+
+model SessionTaskSkillAdvantage {
+  id            String @id @default(uuid())
+  sessionTaskId String
+  roleSkillId   String
+
+  benefitType          SkillBenefitType @default(ADVANTAGE)
+  fatigueCostReduction Int              @default(0)
+  notes                String?
+
+  sessionTask SessionTask    @relation(fields: [sessionTaskId], references: [id], onDelete: Cascade)
+  roleSkill   RoleClassSkill @relation(fields: [roleSkillId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionTaskId, roleSkillId])
+  @@index([sessionTaskId])
+  @@index([roleSkillId])
 }
 
 model SessionEvent {

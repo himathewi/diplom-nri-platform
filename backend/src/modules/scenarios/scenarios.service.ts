@@ -6,10 +6,13 @@ import {
   ScenarioNotFoundError,
   ScenarioTaskItemNotFoundError,
   ScenarioTaskNotFoundError,
+  ScenarioTaskSkillAdvantageNotFoundError,
+  ScenarioTaskSkillNotFoundError,
   ScenarioTaskTemplateNotFoundError,
 } from './scenarios.errors'
 import { scenariosRepository } from './scenarios.repository'
 import type {
+  AddScenarioTaskSkillAdvantageInput,
   CreateScenarioInput,
   CreateScenarioTaskInput,
   UpdateScenarioInput,
@@ -176,6 +179,31 @@ function canReadItem(
   return item.isPublic
 }
 
+function canReadRoleSkill(
+  skill: {
+    roleClass: {
+      isPublic: boolean
+      isActive: boolean
+      createdById: string | null
+    }
+  },
+  currentUser: CurrentUser,
+) {
+  if (!skill.roleClass.isActive) {
+    return false
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return skill.roleClass.isPublic || skill.roleClass.createdById === currentUser.id
+  }
+
+  return false
+}
+
 async function ensureRequiredItemsExist(
   requiredItems: CreateScenarioTaskInput['requiredItems'],
   currentUser: CurrentUser,
@@ -189,6 +217,25 @@ async function ensureRequiredItemsExist(
 
     if (!item || !canReadItem(item, currentUser)) {
       throw new ScenarioTaskItemNotFoundError(requiredItem.itemId)
+    }
+  }
+}
+
+async function ensureSkillAdvantagesCanBeUsed(
+  advantages: CreateScenarioTaskInput['advantageSkills'],
+  currentUser: CurrentUser,
+) {
+  if (!advantages) {
+    return
+  }
+
+  for (const advantage of advantages) {
+    const skill = await scenariosRepository.findRoleSkillById(
+      advantage.roleSkillId,
+    )
+
+    if (!skill || !canReadRoleSkill(skill, currentUser)) {
+      throw new ScenarioTaskSkillNotFoundError(advantage.roleSkillId)
     }
   }
 }
@@ -321,8 +368,78 @@ export const scenariosService = {
 
     await ensureSourceTemplateCanBeUsed(data.sourceTemplateId, currentUser)
     await ensureRequiredItemsExist(data.requiredItems, currentUser)
+    await ensureSkillAdvantagesCanBeUsed(data.advantageSkills, currentUser)
 
     return scenariosRepository.addTask(scenarioId, data, currentUser.id)
+  },
+
+  async addTaskSkillAdvantage(
+    scenarioId: string,
+    taskId: string,
+    data: AddScenarioTaskSkillAdvantageInput,
+    currentUser: CurrentUser,
+  ) {
+    if (!canManageScenarios(currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const scenario = await scenariosRepository.findById(scenarioId)
+
+    if (!scenario) {
+      throw new ScenarioNotFoundError(scenarioId)
+    }
+
+    if (!canEditScenario(scenario, currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const task = await scenariosRepository.findTaskById(taskId)
+
+    if (!task || task.scenarioId !== scenarioId) {
+      throw new ScenarioTaskNotFoundError(taskId)
+    }
+
+    await ensureSkillAdvantagesCanBeUsed([data], currentUser)
+
+    return scenariosRepository.upsertSkillAdvantage(taskId, data)
+  },
+
+  async deleteTaskSkillAdvantage(
+    scenarioId: string,
+    taskId: string,
+    roleSkillId: string,
+    currentUser: CurrentUser,
+  ) {
+    if (!canManageScenarios(currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const scenario = await scenariosRepository.findById(scenarioId)
+
+    if (!scenario) {
+      throw new ScenarioNotFoundError(scenarioId)
+    }
+
+    if (!canEditScenario(scenario, currentUser)) {
+      throw new ScenarioForbiddenError()
+    }
+
+    const task = await scenariosRepository.findTaskById(taskId)
+
+    if (!task || task.scenarioId !== scenarioId) {
+      throw new ScenarioTaskNotFoundError(taskId)
+    }
+
+    const advantage = await scenariosRepository.findSkillAdvantage(
+      taskId,
+      roleSkillId,
+    )
+
+    if (!advantage) {
+      throw new ScenarioTaskSkillAdvantageNotFoundError(taskId, roleSkillId)
+    }
+
+    return scenariosRepository.deleteSkillAdvantage(taskId, roleSkillId)
   },
 
   async deleteTask(

@@ -1,4 +1,4 @@
-import { TaskType } from '@prisma/client'
+import { SkillBenefitType, TaskType } from '@prisma/client'
 import { z } from 'zod'
 
 const nullableStringSchema = z.string().nullable().optional()
@@ -13,6 +13,22 @@ export const taskTemplateRequiredItemParamsSchema = z
   .object({
     id: z.string().uuid(),
     itemId: z.string().uuid(),
+  })
+  .strict()
+
+export const taskTemplateSkillAdvantageParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+    roleSkillId: z.string().uuid(),
+  })
+  .strict()
+
+export const taskSkillAdvantageSchema = z
+  .object({
+    roleSkillId: z.string().uuid(),
+    benefitType: z.nativeEnum(SkillBenefitType).default(SkillBenefitType.ADVANTAGE),
+    fatigueCostReduction: z.number().int().min(0).max(10).default(0),
+    notes: z.string().nullable().optional(),
   })
   .strict()
 
@@ -58,12 +74,18 @@ export const addTaskTemplateRequiredItemSchema = z
   })
   .strict()
 
+export const addTaskTemplateSkillAdvantageSchema = taskSkillAdvantageSchema
+
 export type TaskTemplateParamsInput = z.infer<
   typeof taskTemplateParamsSchema
 >
 
 export type TaskTemplateRequiredItemParamsInput = z.infer<
   typeof taskTemplateRequiredItemParamsSchema
+>
+
+export type TaskTemplateSkillAdvantageParamsInput = z.infer<
+  typeof taskTemplateSkillAdvantageParamsSchema
 >
 
 export type CreateTaskTemplateInput = z.infer<
@@ -76,4 +98,8 @@ export type UpdateTaskTemplateInput = z.infer<
 
 export type AddTaskTemplateRequiredItemInput = z.infer<
   typeof addTaskTemplateRequiredItemSchema
+>
+
+export type AddTaskTemplateSkillAdvantageInput = z.infer<
+  typeof addTaskTemplateSkillAdvantageSchema
 >

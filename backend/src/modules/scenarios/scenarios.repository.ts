@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma'
 import type { CurrentUser } from '../../shared/types'
 import type {
+  AddScenarioTaskSkillAdvantageInput,
   CreateScenarioInput,
   CreateScenarioTaskInput,
   UpdateScenarioInput,
@@ -25,6 +26,18 @@ const scenarioInclude = {
       requiredItems: {
         include: {
           item: true,
+        },
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
+      advantageSkills: {
+        include: {
+          roleSkill: {
+            include: {
+              roleClass: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'asc' as const,
@@ -108,6 +121,15 @@ export const scenariosRepository = {
     })
   },
 
+  findRoleSkillById(roleSkillId: string) {
+    return prisma.roleClassSkill.findUnique({
+      where: { id: roleSkillId },
+      include: {
+        roleClass: true,
+      },
+    })
+  },
+
   create(data: CreateScenarioInput, createdById: string) {
     return prisma.scenario.create({
       data: {
@@ -155,6 +177,7 @@ export const scenariosRepository = {
           tasks: {
             include: {
               requiredItems: true,
+              advantageSkills: true,
             },
             orderBy: {
               createdAt: 'asc',
@@ -197,6 +220,14 @@ export const scenariosRepository = {
                   itemId: requiredItem.itemId,
                   quantity: requiredItem.quantity,
                   notes: requiredItem.notes,
+                })),
+              },
+              advantageSkills: {
+                create: task.advantageSkills.map((advantage) => ({
+                  roleSkillId: advantage.roleSkillId,
+                  benefitType: advantage.benefitType,
+                  fatigueCostReduction: advantage.fatigueCostReduction,
+                  notes: advantage.notes,
                 })),
               },
             })),
@@ -250,11 +281,31 @@ export const scenariosRepository = {
                 })),
               }
             : undefined,
+        advantageSkills:
+          data.advantageSkills && data.advantageSkills.length > 0
+            ? {
+                create: data.advantageSkills.map((advantage) => ({
+                  roleSkillId: advantage.roleSkillId,
+                  benefitType: advantage.benefitType,
+                  fatigueCostReduction: advantage.fatigueCostReduction,
+                  notes: advantage.notes ?? null,
+                })),
+              }
+            : undefined,
       },
       include: {
         requiredItems: {
           include: {
             item: true,
+          },
+        },
+        advantageSkills: {
+          include: {
+            roleSkill: {
+              include: {
+                roleClass: true,
+              },
+            },
           },
         },
         sourceTemplate: true,
@@ -265,6 +316,75 @@ export const scenariosRepository = {
   findTaskById(taskId: string) {
     return prisma.scenarioTask.findUnique({
       where: { id: taskId },
+    })
+  },
+
+  findSkillAdvantage(taskId: string, roleSkillId: string) {
+    return prisma.scenarioTaskSkillAdvantage.findUnique({
+      where: {
+        taskId_roleSkillId: {
+          taskId,
+          roleSkillId,
+        },
+      },
+      include: {
+        roleSkill: {
+          include: {
+            roleClass: true,
+          },
+        },
+      },
+    })
+  },
+
+  upsertSkillAdvantage(
+    taskId: string,
+    data: AddScenarioTaskSkillAdvantageInput,
+  ) {
+    return prisma.scenarioTaskSkillAdvantage.upsert({
+      where: {
+        taskId_roleSkillId: {
+          taskId,
+          roleSkillId: data.roleSkillId,
+        },
+      },
+      update: {
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      create: {
+        taskId,
+        roleSkillId: data.roleSkillId,
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      include: {
+        roleSkill: {
+          include: {
+            roleClass: true,
+          },
+        },
+      },
+    })
+  },
+
+  deleteSkillAdvantage(taskId: string, roleSkillId: string) {
+    return prisma.scenarioTaskSkillAdvantage.delete({
+      where: {
+        taskId_roleSkillId: {
+          taskId,
+          roleSkillId,
+        },
+      },
+      include: {
+        roleSkill: {
+          include: {
+            roleClass: true,
+          },
+        },
+      },
     })
   },
 

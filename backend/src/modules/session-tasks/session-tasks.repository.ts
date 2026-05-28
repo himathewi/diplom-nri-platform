@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma'
 
 import type {
   AddSessionTaskRequiredItemInput,
+  AddSessionTaskSkillAdvantageInput,
+  SessionTaskSkillAdvantageInput,
   SessionTaskRequiredItemInput,
   UpdateSessionTaskInput,
 } from './session-tasks.schemas'
@@ -21,9 +23,23 @@ const itemInclude = {
   item: true,
 } as const
 
+const roleSkillInclude = {
+  roleSkill: {
+    include: {
+      roleClass: true,
+    },
+  },
+} as const
+
 const taskTemplateInclude = {
   requiredItems: {
     include: itemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  advantageSkills: {
+    include: roleSkillInclude,
     orderBy: {
       createdAt: 'asc' as const,
     },
@@ -33,6 +49,12 @@ const taskTemplateInclude = {
 const scenarioTaskInclude = {
   requiredItems: {
     include: itemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  advantageSkills: {
+    include: roleSkillInclude,
     orderBy: {
       createdAt: 'asc' as const,
     },
@@ -86,6 +108,12 @@ const sessionTaskInclude = {
       createdAt: 'asc' as const,
     },
   },
+  advantageSkills: {
+    include: roleSkillInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
   decisions: {
     orderBy: {
       createdAt: 'asc' as const,
@@ -105,6 +133,7 @@ type CreateSessionTaskRepositoryInput = {
   fatigueCost: number
   isVisibleToParticipants: boolean
   requiredItems: SessionTaskRequiredItemInput[]
+  advantageSkills: SessionTaskSkillAdvantageInput[]
 }
 
 function getCompletedAtForStatus(status: SessionTaskStatus | undefined) {
@@ -193,6 +222,17 @@ export const sessionTasksRepository = {
     })
   },
 
+  findRoleSkillById(roleSkillId: string) {
+    return prisma.roleClassSkill.findUnique({
+      where: {
+        id: roleSkillId,
+      },
+      include: {
+        roleClass: true,
+      },
+    })
+  },
+
   create(data: CreateSessionTaskRepositoryInput) {
     return prisma.$transaction(async (tx) => {
       const task = await tx.sessionTask.create({
@@ -217,6 +257,19 @@ export const sessionTasksRepository = {
             itemId: item.itemId,
             quantity: item.quantity,
             notes: item.notes ?? null,
+          })),
+          skipDuplicates: true,
+        })
+      }
+
+      if (data.advantageSkills.length > 0) {
+        await tx.sessionTaskSkillAdvantage.createMany({
+          data: data.advantageSkills.map((advantage) => ({
+            sessionTaskId: task.id,
+            roleSkillId: advantage.roleSkillId,
+            benefitType: advantage.benefitType,
+            fatigueCostReduction: advantage.fatigueCostReduction,
+            notes: advantage.notes ?? null,
           })),
           skipDuplicates: true,
         })
@@ -325,6 +378,57 @@ export const sessionTasksRepository = {
         },
       },
       include: itemInclude,
+    })
+  },
+
+  findSkillAdvantage(taskId: string, roleSkillId: string) {
+    return prisma.sessionTaskSkillAdvantage.findUnique({
+      where: {
+        sessionTaskId_roleSkillId: {
+          sessionTaskId: taskId,
+          roleSkillId,
+        },
+      },
+      include: roleSkillInclude,
+    })
+  },
+
+  upsertSkillAdvantage(
+    taskId: string,
+    data: AddSessionTaskSkillAdvantageInput,
+  ) {
+    return prisma.sessionTaskSkillAdvantage.upsert({
+      where: {
+        sessionTaskId_roleSkillId: {
+          sessionTaskId: taskId,
+          roleSkillId: data.roleSkillId,
+        },
+      },
+      update: {
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      create: {
+        sessionTaskId: taskId,
+        roleSkillId: data.roleSkillId,
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      include: roleSkillInclude,
+    })
+  },
+
+  deleteSkillAdvantage(taskId: string, roleSkillId: string) {
+    return prisma.sessionTaskSkillAdvantage.delete({
+      where: {
+        sessionTaskId_roleSkillId: {
+          sessionTaskId: taskId,
+          roleSkillId,
+        },
+      },
+      include: roleSkillInclude,
     })
   },
 }

@@ -25,7 +25,7 @@ function getCurrentUserOrUnauthorized(request: Parameters<typeof getAuthUserId>[
   const currentUserId = getAuthUserId(request)
   const currentUserRole = getAuthUserRole(request)
 
-  if (!currentUserId) {
+  if (!currentUserId || !currentUserRole) {
     return null
   }
 

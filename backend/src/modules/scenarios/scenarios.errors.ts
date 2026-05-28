@@ -46,3 +46,17 @@ export class ScenarioTaskItemNotFoundError extends Error {
     this.name = 'ScenarioTaskItemNotFoundError'
   }
 }
+
+export class ScenarioTaskSkillNotFoundError extends Error {
+  constructor(skillId: string) {
+    super(`Role class skill with id ${skillId} not found`)
+    this.name = 'ScenarioTaskSkillNotFoundError'
+  }
+}
+
+export class ScenarioTaskSkillAdvantageNotFoundError extends Error {
+  constructor(taskId: string, roleSkillId: string) {
+    super(`Skill advantage ${roleSkillId} not found for scenario task ${taskId}`)
+    this.name = 'ScenarioTaskSkillAdvantageNotFoundError'
+  }
+}

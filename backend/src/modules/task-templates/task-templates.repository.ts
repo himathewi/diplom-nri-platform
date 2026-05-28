@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma'
 
 import type {
+  AddTaskTemplateSkillAdvantageInput,
   AddTaskTemplateRequiredItemInput,
   CreateTaskTemplateInput,
   UpdateTaskTemplateInput,
@@ -27,6 +28,14 @@ const requiredItemInclude = {
   item: true,
 } as const
 
+const roleSkillInclude = {
+  roleSkill: {
+    include: {
+      roleClass: true,
+    },
+  },
+} as const
+
 const taskTemplateInclude = {
   direction: {
     select: directionSelect,
@@ -36,6 +45,12 @@ const taskTemplateInclude = {
   },
   requiredItems: {
     include: requiredItemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  advantageSkills: {
+    include: roleSkillInclude,
     orderBy: {
       createdAt: 'asc' as const,
     },
@@ -106,6 +121,17 @@ export const taskTemplatesRepository = {
     return prisma.item.findUnique({
       where: {
         id: itemId,
+      },
+    })
+  },
+
+  findRoleSkillById(roleSkillId: string) {
+    return prisma.roleClassSkill.findUnique({
+      where: {
+        id: roleSkillId,
+      },
+      include: {
+        roleClass: true,
       },
     })
   },
@@ -228,6 +254,57 @@ export const taskTemplatesRepository = {
         },
       },
       include: requiredItemInclude,
+    })
+  },
+
+  findSkillAdvantage(taskTemplateId: string, roleSkillId: string) {
+    return prisma.taskTemplateSkillAdvantage.findUnique({
+      where: {
+        taskTemplateId_roleSkillId: {
+          taskTemplateId,
+          roleSkillId,
+        },
+      },
+      include: roleSkillInclude,
+    })
+  },
+
+  upsertSkillAdvantage(
+    taskTemplateId: string,
+    data: AddTaskTemplateSkillAdvantageInput,
+  ) {
+    return prisma.taskTemplateSkillAdvantage.upsert({
+      where: {
+        taskTemplateId_roleSkillId: {
+          taskTemplateId,
+          roleSkillId: data.roleSkillId,
+        },
+      },
+      update: {
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      create: {
+        taskTemplateId,
+        roleSkillId: data.roleSkillId,
+        benefitType: data.benefitType,
+        fatigueCostReduction: data.fatigueCostReduction,
+        notes: data.notes ?? null,
+      },
+      include: roleSkillInclude,
+    })
+  },
+
+  deleteSkillAdvantage(taskTemplateId: string, roleSkillId: string) {
+    return prisma.taskTemplateSkillAdvantage.delete({
+      where: {
+        taskTemplateId_roleSkillId: {
+          taskTemplateId,
+          roleSkillId,
+        },
+      },
+      include: roleSkillInclude,
     })
   },
 }

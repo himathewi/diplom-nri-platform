@@ -12,12 +12,16 @@ import {
   ScenarioNotFoundError,
   ScenarioTaskItemNotFoundError,
   ScenarioTaskNotFoundError,
+  ScenarioTaskSkillAdvantageNotFoundError,
+  ScenarioTaskSkillNotFoundError,
   ScenarioTaskTemplateNotFoundError,
 } from './scenarios.errors'
 import {
+  addScenarioTaskSkillAdvantageSchema,
   createScenarioSchema,
   createScenarioTaskSchema,
   scenarioParamsSchema,
+  scenarioTaskSkillAdvantageParamsSchema,
   scenarioTaskParamsSchema,
   updateScenarioSchema,
 } from './scenarios.schemas'
@@ -49,7 +53,9 @@ function sendScenarioError(error: unknown, reply: FastifyReply) {
   if (
     error instanceof ScenarioTaskNotFoundError ||
     error instanceof ScenarioTaskTemplateNotFoundError ||
-    error instanceof ScenarioTaskItemNotFoundError
+    error instanceof ScenarioTaskItemNotFoundError ||
+    error instanceof ScenarioTaskSkillNotFoundError ||
+    error instanceof ScenarioTaskSkillAdvantageNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
@@ -356,6 +362,94 @@ export async function scenariosRoutes(app: FastifyInstance) {
         await scenariosService.deleteTask(
           paramsParsed.data.id,
           paramsParsed.data.taskId,
+          currentUser,
+        )
+
+        return reply.status(204).send()
+      } catch (error) {
+        return sendScenarioError(error, reply)
+      }
+    },
+  )
+
+  app.post(
+    '/scenarios/:id/tasks/:taskId/skill-advantages',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = scenarioTaskParamsSchema.safeParse(request.params)
+      const bodyParsed = addScenarioTaskSkillAdvantageSchema.safeParse(
+        request.body,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const advantage = await scenariosService.addTaskSkillAdvantage(
+          paramsParsed.data.id,
+          paramsParsed.data.taskId,
+          bodyParsed.data,
+          currentUser,
+        )
+
+        return reply.status(201).send(advantage)
+      } catch (error) {
+        return sendScenarioError(error, reply)
+      }
+    },
+  )
+
+  app.delete(
+    '/scenarios/:id/tasks/:taskId/skill-advantages/:roleSkillId',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = scenarioTaskSkillAdvantageParamsSchema.safeParse(
+        request.params,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUserOrUnauthorized(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        await scenariosService.deleteTaskSkillAdvantage(
+          paramsParsed.data.id,
+          paramsParsed.data.taskId,
+          paramsParsed.data.roleSkillId,
           currentUser,
         )
 

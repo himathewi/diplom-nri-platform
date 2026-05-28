@@ -11,6 +11,8 @@ import {
   SessionTaskScenarioTaskNotFoundError,
   SessionTaskSessionFinishedError,
   SessionTaskSessionNotFoundError,
+  SessionTaskSkillAdvantageNotFoundError,
+  SessionTaskSkillNotFoundError,
   SessionTaskSourceConflictError,
   SessionTaskTemplateNotFoundError,
   SessionTaskTitleRequiredError,
@@ -20,7 +22,9 @@ import { sessionTasksRepository } from './session-tasks.repository'
 
 import type {
   AddSessionTaskRequiredItemInput,
+  AddSessionTaskSkillAdvantageInput,
   CreateSessionTaskInput,
+  SessionTaskSkillAdvantageInput,
   SessionTaskRequiredItemInput,
   UpdateSessionTaskInput,
 } from './session-tasks.schemas'
@@ -147,6 +151,27 @@ function canReadTaskTemplate(
   return taskTemplate.isPublic
 }
 
+function mergeSkillAdvantages(
+  baseAdvantages: SessionTaskSkillAdvantageInput[],
+  overrideAdvantages: SessionTaskSkillAdvantageInput[] | undefined,
+) {
+  if (!overrideAdvantages) {
+    return baseAdvantages
+  }
+
+  const advantagesBySkillId = new Map<string, SessionTaskSkillAdvantageInput>()
+
+  for (const advantage of baseAdvantages) {
+    advantagesBySkillId.set(advantage.roleSkillId, advantage)
+  }
+
+  for (const advantage of overrideAdvantages) {
+    advantagesBySkillId.set(advantage.roleSkillId, advantage)
+  }
+
+  return Array.from(advantagesBySkillId.values())
+}
+
 function canReadItemForSession(
   item: {
     isPublic: boolean
@@ -187,6 +212,53 @@ async function assertItemsCanBeUsed(
   }
 }
 
+function canReadRoleSkillForSession(
+  skill: {
+    roleClass: {
+      isPublic: boolean
+      isActive: boolean
+      createdById: string | null
+    }
+  },
+  session: {
+    moderatorId: string
+  },
+  currentUser: CurrentUser,
+) {
+  if (!skill.roleClass.isActive) {
+    return false
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return true
+  }
+
+  if (currentUser.role === 'MODERATOR') {
+    return (
+      skill.roleClass.isPublic ||
+      skill.roleClass.createdById === session.moderatorId
+    )
+  }
+
+  return false
+}
+
+async function assertSkillAdvantagesCanBeUsed(
+  advantages: SessionTaskSkillAdvantageInput[],
+  session: SessionForAccess,
+  currentUser: CurrentUser,
+) {
+  for (const advantage of advantages) {
+    const skill = await sessionTasksRepository.findRoleSkillById(
+      advantage.roleSkillId,
+    )
+
+    if (!skill || !canReadRoleSkillForSession(skill, session, currentUser)) {
+      throw new SessionTaskSkillNotFoundError(advantage.roleSkillId)
+    }
+  }
+}
+
 function toRequiredItemsFromSource(
   items: {
     itemId: string
@@ -198,6 +270,22 @@ function toRequiredItemsFromSource(
     itemId: item.itemId,
     quantity: item.quantity,
     notes: item.notes,
+  }))
+}
+
+function toSkillAdvantagesFromSource(
+  advantages: {
+    roleSkillId: string
+    benefitType: SessionTaskSkillAdvantageInput['benefitType']
+    fatigueCostReduction: number
+    notes: string | null
+  }[],
+): SessionTaskSkillAdvantageInput[] {
+  return advantages.map((advantage) => ({
+    roleSkillId: advantage.roleSkillId,
+    benefitType: advantage.benefitType,
+    fatigueCostReduction: advantage.fatigueCostReduction,
+    notes: advantage.notes,
   }))
 }
 
@@ -221,8 +309,13 @@ async function buildCreateData(
       toRequiredItemsFromSource(template.requiredItems),
       data.requiredItems,
     )
+    const advantageSkills = mergeSkillAdvantages(
+      toSkillAdvantagesFromSource(template.advantageSkills),
+      data.advantageSkills,
+    )
 
     await assertItemsCanBeUsed(requiredItems, session, currentUser)
+    await assertSkillAdvantagesCanBeUsed(advantageSkills, session, currentUser)
 
     return {
       sessionId: session.id,
@@ -238,6 +331,7 @@ async function buildCreateData(
       fatigueCost: data.fatigueCost ?? template.fatigueCost,
       isVisibleToParticipants: data.isVisibleToParticipants ?? false,
       requiredItems,
+      advantageSkills,
     }
   }
 
@@ -258,8 +352,13 @@ async function buildCreateData(
       toRequiredItemsFromSource(scenarioTask.requiredItems),
       data.requiredItems,
     )
+    const advantageSkills = mergeSkillAdvantages(
+      toSkillAdvantagesFromSource(scenarioTask.advantageSkills),
+      data.advantageSkills,
+    )
 
     await assertItemsCanBeUsed(requiredItems, session, currentUser)
+    await assertSkillAdvantagesCanBeUsed(advantageSkills, session, currentUser)
 
     return {
       sessionId: session.id,
@@ -276,6 +375,7 @@ async function buildCreateData(
       isVisibleToParticipants:
         data.isVisibleToParticipants ?? scenarioTask.isVisibleByDefault,
       requiredItems,
+      advantageSkills,
     }
   }
 
@@ -284,8 +384,10 @@ async function buildCreateData(
   }
 
   const requiredItems = data.requiredItems ?? []
+  const advantageSkills = data.advantageSkills ?? []
 
   await assertItemsCanBeUsed(requiredItems, session, currentUser)
+  await assertSkillAdvantagesCanBeUsed(advantageSkills, session, currentUser)
 
   return {
     sessionId: session.id,
@@ -299,6 +401,7 @@ async function buildCreateData(
     fatigueCost: data.fatigueCost ?? 0,
     isVisibleToParticipants: data.isVisibleToParticipants ?? false,
     requiredItems,
+    advantageSkills,
   }
 }
 
@@ -423,5 +526,49 @@ export const sessionTasksService = {
     }
 
     return sessionTasksRepository.deleteRequiredItem(taskId, itemId)
+  },
+
+  async addSkillAdvantage(
+    taskId: string,
+    data: AddSessionTaskSkillAdvantageInput,
+    currentUser: CurrentUser,
+  ) {
+    const task = await sessionTasksRepository.findById(taskId)
+
+    if (!task) {
+      throw new SessionTaskNotFoundError(taskId)
+    }
+
+    assertCanManageSession(task.session, currentUser)
+    assertSessionIsNotFinished(task.session)
+    await assertSkillAdvantagesCanBeUsed([data], task.session, currentUser)
+
+    return sessionTasksRepository.upsertSkillAdvantage(taskId, data)
+  },
+
+  async deleteSkillAdvantage(
+    taskId: string,
+    roleSkillId: string,
+    currentUser: CurrentUser,
+  ) {
+    const task = await sessionTasksRepository.findById(taskId)
+
+    if (!task) {
+      throw new SessionTaskNotFoundError(taskId)
+    }
+
+    assertCanManageSession(task.session, currentUser)
+    assertSessionIsNotFinished(task.session)
+
+    const advantage = await sessionTasksRepository.findSkillAdvantage(
+      taskId,
+      roleSkillId,
+    )
+
+    if (!advantage) {
+      throw new SessionTaskSkillAdvantageNotFoundError(taskId, roleSkillId)
+    }
+
+    return sessionTasksRepository.deleteSkillAdvantage(taskId, roleSkillId)
   },
 }

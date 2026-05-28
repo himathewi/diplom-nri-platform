@@ -16,6 +16,17 @@ const characterSheetInclude = Prisma.validator<Prisma.CharacterInclude>()({
       id: true,
       name: true,
       description: true,
+      skills: {
+        select: {
+          id: true,
+          roleClassId: true,
+          name: true,
+          description: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+      },
     },
   },
   stats: true,

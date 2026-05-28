@@ -1,3 +1,4 @@
+import { SkillBenefitType } from '@prisma/client'
 import { z } from 'zod'
 
 export const scenarioSourceTypeSchema = z.enum(['TEMPLATE', 'CUSTOM'])
@@ -14,6 +15,23 @@ export const scenarioTaskParamsSchema = z
   .object({
     id: z.string().uuid(),
     taskId: z.string().uuid(),
+  })
+  .strict()
+
+export const scenarioTaskSkillAdvantageParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+    taskId: z.string().uuid(),
+    roleSkillId: z.string().uuid(),
+  })
+  .strict()
+
+export const scenarioTaskSkillAdvantageSchema = z
+  .object({
+    roleSkillId: z.string().uuid(),
+    benefitType: z.nativeEnum(SkillBenefitType).default(SkillBenefitType.ADVANTAGE),
+    fatigueCostReduction: z.number().int().min(0).max(10).default(0),
+    notes: z.string().nullable().optional(),
   })
   .strict()
 
@@ -57,11 +75,21 @@ export const createScenarioTaskSchema = z
           .strict(),
       )
       .optional(),
+    advantageSkills: z.array(scenarioTaskSkillAdvantageSchema).optional(),
   })
   .strict()
 
+export const addScenarioTaskSkillAdvantageSchema =
+  scenarioTaskSkillAdvantageSchema
+
 export type ScenarioParamsInput = z.infer<typeof scenarioParamsSchema>
 export type ScenarioTaskParamsInput = z.infer<typeof scenarioTaskParamsSchema>
+export type ScenarioTaskSkillAdvantageParamsInput = z.infer<
+  typeof scenarioTaskSkillAdvantageParamsSchema
+>
 export type CreateScenarioInput = z.infer<typeof createScenarioSchema>
 export type UpdateScenarioInput = z.infer<typeof updateScenarioSchema>
 export type CreateScenarioTaskInput = z.infer<typeof createScenarioTaskSchema>
+export type AddScenarioTaskSkillAdvantageInput = z.infer<
+  typeof addScenarioTaskSkillAdvantageSchema
+>

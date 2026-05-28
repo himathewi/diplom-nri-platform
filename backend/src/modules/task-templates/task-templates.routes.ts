@@ -7,9 +7,11 @@ import {
 
 import {
   addTaskTemplateRequiredItemSchema,
+  addTaskTemplateSkillAdvantageSchema,
   createTaskTemplateSchema,
   taskTemplateParamsSchema,
   taskTemplateRequiredItemParamsSchema,
+  taskTemplateSkillAdvantageParamsSchema,
   updateTaskTemplateSchema,
 } from './task-templates.schemas'
 
@@ -19,6 +21,8 @@ import {
   TaskTemplateItemNotFoundError,
   TaskTemplateNotFoundError,
   TaskTemplateRequiredItemNotFoundError,
+  TaskTemplateSkillAdvantageNotFoundError,
+  TaskTemplateSkillNotFoundError,
 } from './task-templates.errors'
 
 import { taskTemplatesService } from './task-templates.service'
@@ -29,6 +33,8 @@ function handleTaskTemplateError(error: unknown, reply: FastifyReply) {
     || error instanceof TaskTemplateDirectionNotFoundError
     || error instanceof TaskTemplateItemNotFoundError
     || error instanceof TaskTemplateRequiredItemNotFoundError
+    || error instanceof TaskTemplateSkillNotFoundError
+    || error instanceof TaskTemplateSkillAdvantageNotFoundError
   ) {
     return reply.status(404).send({
       message: error.message,
@@ -300,6 +306,92 @@ export async function taskTemplatesRoutes(app: FastifyInstance) {
         await taskTemplatesService.deleteRequiredItem(
           paramsParsed.data.id,
           paramsParsed.data.itemId,
+          currentUser,
+        )
+
+        return reply.status(204).send()
+      } catch (error) {
+        return handleTaskTemplateError(error, reply)
+      }
+    },
+  )
+
+  app.post(
+    '/task-templates/:id/skill-advantages',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = taskTemplateParamsSchema.safeParse(request.params)
+      const bodyParsed = addTaskTemplateSkillAdvantageSchema.safeParse(
+        request.body,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: bodyParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        const advantage = await taskTemplatesService.addSkillAdvantage(
+          paramsParsed.data.id,
+          bodyParsed.data,
+          currentUser,
+        )
+
+        return reply.status(201).send(advantage)
+      } catch (error) {
+        return handleTaskTemplateError(error, reply)
+      }
+    },
+  )
+
+  app.delete(
+    '/task-templates/:id/skill-advantages/:roleSkillId',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const paramsParsed = taskTemplateSkillAdvantageParamsSchema.safeParse(
+        request.params,
+      )
+
+      if (!paramsParsed.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: paramsParsed.error.flatten(),
+        })
+      }
+
+      const currentUser = getCurrentUser(request)
+
+      if (!currentUser) {
+        return reply.status(401).send({
+          message: 'Unauthorized',
+        })
+      }
+
+      try {
+        await taskTemplatesService.deleteSkillAdvantage(
+          paramsParsed.data.id,
+          paramsParsed.data.roleSkillId,
           currentUser,
         )
 

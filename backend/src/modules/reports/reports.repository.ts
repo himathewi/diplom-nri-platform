@@ -18,7 +18,15 @@ const userSelect = {
 } as const
 
 const characterInclude = {
-  roleClass: true,
+  roleClass: {
+    include: {
+      skills: {
+        orderBy: {
+          name: 'asc' as const,
+        },
+      },
+    },
+  },
   stats: true,
 } as const
 
@@ -45,6 +53,14 @@ const taskRequiredItemInclude = {
   item: true,
 } as const
 
+const taskSkillAdvantageInclude = {
+  roleSkill: {
+    include: {
+      roleClass: true,
+    },
+  },
+} as const
+
 const decisionShortInclude = {
   user: {
     select: userSelect,
@@ -64,6 +80,12 @@ const sessionTaskInclude = {
           createdAt: 'asc' as const,
         },
       },
+      advantageSkills: {
+        include: taskSkillAdvantageInclude,
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
     },
   },
   sourceTemplate: {
@@ -74,10 +96,22 @@ const sessionTaskInclude = {
           createdAt: 'asc' as const,
         },
       },
+      advantageSkills: {
+        include: taskSkillAdvantageInclude,
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
     },
   },
   requiredItems: {
     include: taskRequiredItemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  advantageSkills: {
+    include: taskSkillAdvantageInclude,
     orderBy: {
       createdAt: 'asc' as const,
     },
@@ -106,6 +140,12 @@ const decisionInclude = {
           createdAt: 'asc' as const,
         },
       },
+      advantageSkills: {
+        include: taskSkillAdvantageInclude,
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
     },
   },
 } as const
@@ -121,6 +161,12 @@ const sessionInclude = {
         include: {
           requiredItems: {
             include: taskRequiredItemInclude,
+            orderBy: {
+              createdAt: 'asc' as const,
+            },
+          },
+          advantageSkills: {
+            include: taskSkillAdvantageInclude,
             orderBy: {
               createdAt: 'asc' as const,
             },
