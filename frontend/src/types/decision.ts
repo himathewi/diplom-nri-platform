@@ -5,10 +5,12 @@ import type { SessionEvent } from './sessionEvent'
 export type DecisionCharacter = {
   id: string
   userId: string
+  roleClassId: string | null
   name: string
   description?: string | null
-  profession?: string | null
-  competence?: string | null
+  professionalFunction?: string | null
+  fatigueLimit?: number
+  currentFatigue?: number
   user?: User
   createdAt: string
   updatedAt: string
@@ -18,7 +20,7 @@ export type Decision = {
   id: string
   sessionId: string
   characterId?: string | null
-  userId: string
+  userId?: string | null
   eventId?: string | null
 
   description: string
@@ -31,7 +33,7 @@ export type Decision = {
 
   session?: GameSession
   character?: DecisionCharacter | null
-  user?: User
+  user?: User | null
   event?: SessionEvent | null
 }
 
