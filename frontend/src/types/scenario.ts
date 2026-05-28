@@ -1,11 +1,6 @@
-export type ScenarioDomain =
-  | 'CROP_PRODUCTION'
-  | 'GREENHOUSE'
-  | 'LIVESTOCK'
-  | 'LOGISTICS'
-  | 'PROCESSING'
-  | 'ROBOTICS'
-  | 'TEAMBUILDING'
+import type { ScenarioDomain } from './enums'
+
+export type { ScenarioDomain } from './enums'
 
 export type ScenarioCreator = {
   id: string

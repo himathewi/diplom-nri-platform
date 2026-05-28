@@ -1,4 +1,6 @@
-export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT'
+import type { UserRole } from './enums'
+
+export type { UserRole } from './enums'
 
 export type User = {
   id: string

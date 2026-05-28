@@ -1,12 +1,8 @@
 import type { GameSession } from './session'
 
-export type SessionEventType =
-  | 'PRODUCTION_PROBLEM'
-  | 'WEATHER_CHANGE'
-  | 'RESOURCE_LIMIT'
-  | 'EQUIPMENT_FAILURE'
-  | 'TEAM_CONFLICT'
-  | 'INFORMATION_UPDATE'
+import type { SessionEventType } from './enums'
+
+export type { SessionEventType } from './enums'
 
 export type SessionEventDecision = {
   id: string
