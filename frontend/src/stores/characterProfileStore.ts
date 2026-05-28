@@ -50,11 +50,30 @@ const mergeCharacterIntoList = (
   )
 }
 
-const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
-  ...sheet.character,
-  spellcastingAbility: sheet.magic.spellcastingAbility,
-  baseStats: sheet.stats.base,
-} as Character)
+const mapSheetToCharacter = (sheet: CharacterSheet): Character => {
+  const character = sheet.character as unknown as Partial<Character> & {
+    id: string
+    name: string
+    description?: string | null
+    createdAt: string
+    updatedAt: string
+  }
+
+  return {
+    id: character.id,
+    userId: character.userId ?? '',
+    roleClassId: character.roleClassId ?? null,
+    name: character.name,
+    description: character.description ?? null,
+    professionalFunction: character.professionalFunction ?? null,
+    fatigueLimit: character.fatigueLimit ?? 0,
+    currentFatigue: character.currentFatigue ?? 0,
+    roleClass: character.roleClass ?? null,
+    stats: sheet.stats?.base ?? null,
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+  }
+}
 
 export const useCharacterProfileStore = create<CharacterProfileStore>((set, get) => ({
   characters: [],
