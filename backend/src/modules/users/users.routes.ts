@@ -1,18 +1,36 @@
 import type { FastifyInstance } from 'fastify'
+
 import {
   authMiddleware,
   getAuthUserId,
   getAuthUserRole,
 } from '../../middlewares/auth.middleware'
+
 import type { CurrentUser } from '../../shared/types'
-import { usersService } from './users.service'
-import { updateUserSchema, userParamsSchema } from './users.schemas'
+
 import {
   UserEmailAlreadyExistsError,
   UserForbiddenError,
   UserNotFoundError,
 } from './users.errors'
 
+import { updateUserSchema, userParamsSchema } from './users.schemas'
+
+import { usersService } from './users.service'
+
+function getCurrentUserFromRequest(request: Parameters<typeof getAuthUserId>[0]) {
+  const currentUserId = getAuthUserId(request)
+  const currentUserRole = getAuthUserRole(request)
+
+  if (!currentUserId || !currentUserRole) {
+    return null
+  }
+
+  return {
+    id: currentUserId,
+    role: currentUserRole as CurrentUser['role'],
+  }
+}
 
 export async function usersRoutes(app: FastifyInstance) {
   app.get(
@@ -21,20 +39,16 @@ export async function usersRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const currentUserId = getAuthUserId(request)
-      const currentUserRole = getAuthUserRole(request)
+      const currentUser = getCurrentUserFromRequest(request)
 
-      if (!currentUserId) {
+      if (!currentUser) {
         return reply.status(401).send({
           message: 'Unauthorized',
         })
       }
 
       try {
-        const users = await usersService.getUsers({
-          id: currentUserId,
-          role: currentUserRole as CurrentUser['role'],
-        })
+        const users = await usersService.getUsers(currentUser)
 
         return reply.status(200).send(users)
       } catch (error) {
@@ -55,16 +69,16 @@ export async function usersRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const currentUserId = getAuthUserId(request)
+      const currentUser = getCurrentUserFromRequest(request)
 
-      if (!currentUserId) {
+      if (!currentUser) {
         return reply.status(401).send({
           message: 'Unauthorized',
         })
       }
 
       try {
-        const user = await usersService.getCurrentUser(currentUserId)
+        const user = await usersService.getCurrentUser(currentUser.id)
 
         return reply.status(200).send(user)
       } catch (error) {
@@ -94,20 +108,19 @@ export async function usersRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUserId = getAuthUserId(request)
-      const currentUserRole = getAuthUserRole(request)
+      const currentUser = getCurrentUserFromRequest(request)
 
-      if (!currentUserId) {
+      if (!currentUser) {
         return reply.status(401).send({
           message: 'Unauthorized',
         })
       }
 
       try {
-        const user = await usersService.getUserById(paramsParsed.data.id, {
-          id: currentUserId,
-          role: currentUserRole as CurrentUser['role'],
-        })
+        const user = await usersService.getUserById(
+          paramsParsed.data.id,
+          currentUser,
+        )
 
         return reply.status(200).send(user)
       } catch (error) {
@@ -151,10 +164,9 @@ export async function usersRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUserId = getAuthUserId(request)
-      const currentUserRole = getAuthUserRole(request)
+      const currentUser = getCurrentUserFromRequest(request)
 
-      if (!currentUserId) {
+      if (!currentUser) {
         return reply.status(401).send({
           message: 'Unauthorized',
         })
@@ -164,10 +176,7 @@ export async function usersRoutes(app: FastifyInstance) {
         const user = await usersService.updateUser(
           paramsParsed.data.id,
           bodyParsed.data,
-          {
-            id: currentUserId,
-            role: currentUserRole as CurrentUser['role'],
-          },
+          currentUser,
         )
 
         return reply.status(200).send(user)
@@ -210,20 +219,16 @@ export async function usersRoutes(app: FastifyInstance) {
         })
       }
 
-      const currentUserId = getAuthUserId(request)
-      const currentUserRole = getAuthUserRole(request)
+      const currentUser = getCurrentUserFromRequest(request)
 
-      if (!currentUserId) {
+      if (!currentUser) {
         return reply.status(401).send({
           message: 'Unauthorized',
         })
       }
 
       try {
-        await usersService.deleteUser(paramsParsed.data.id, {
-          id: currentUserId,
-          role: currentUserRole as CurrentUser['role'],
-        })
+        await usersService.deleteUser(paramsParsed.data.id, currentUser)
 
         return reply.status(204).send()
       } catch (error) {

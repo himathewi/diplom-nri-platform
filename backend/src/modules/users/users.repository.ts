@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+
 import type { UpdateUserInput } from './users.schemas'
 
 const userSelect = {
@@ -8,7 +9,7 @@ const userSelect = {
   role: true,
   createdAt: true,
   updatedAt: true,
-}
+} as const
 
 export const usersRepository = {
   findMany() {
@@ -22,28 +23,47 @@ export const usersRepository = {
 
   findById(id: string) {
     return prisma.user.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: userSelect,
     })
   },
 
   findByEmail(email: string) {
     return prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+      },
+      select: userSelect,
     })
   },
 
   update(id: string, data: UpdateUserInput) {
     return prisma.user.update({
-      where: { id },
-      data,
+      where: {
+        id,
+      },
+      data: {
+        ...(data.email !== undefined && {
+          email: data.email,
+        }),
+        ...(data.name !== undefined && {
+          name: data.name,
+        }),
+        ...(data.role !== undefined && {
+          role: data.role,
+        }),
+      },
       select: userSelect,
     })
   },
 
   delete(id: string) {
     return prisma.user.delete({
-      where: { id },
+      where: {
+        id,
+      },
       select: userSelect,
     })
   },

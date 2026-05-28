@@ -1,15 +1,49 @@
-import { usersRepository } from './users.repository'
-import type { UpdateUserInput } from './users.schemas'
+import type { CurrentUser } from '../../shared/types'
+
 import {
+  UserAdminDeleteForbiddenError,
+  UserAdminRoleProtectedError,
   UserEmailAlreadyExistsError,
   UserForbiddenError,
   UserNotFoundError,
+  UserRoleUpdateForbiddenError,
 } from './users.errors'
-import type { CurrentUser } from '../../shared/types'
+
+import { usersRepository } from './users.repository'
+
+import type { UpdateUserInput } from './users.schemas'
+
+function isAdmin(currentUser: CurrentUser) {
+  return currentUser.role === 'ADMIN'
+}
+
+function isModerator(currentUser: CurrentUser) {
+  return currentUser.role === 'MODERATOR'
+}
+
+function canReadUsers(currentUser: CurrentUser) {
+  return isAdmin(currentUser) || isModerator(currentUser)
+}
+
+function canReadUserById(userId: string, currentUser: CurrentUser) {
+  if (isAdmin(currentUser) || isModerator(currentUser)) {
+    return true
+  }
+
+  return currentUser.id === userId
+}
+
+function canUpdateUser(userId: string, currentUser: CurrentUser) {
+  if (isAdmin(currentUser)) {
+    return true
+  }
+
+  return currentUser.id === userId
+}
 
 export const usersService = {
   async getUsers(currentUser: CurrentUser) {
-    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MODERATOR') {
+    if (!canReadUsers(currentUser)) {
       throw new UserForbiddenError()
     }
 
@@ -17,11 +51,7 @@ export const usersService = {
   },
 
   async getUserById(id: string, currentUser: CurrentUser) {
-    if (
-      currentUser.role !== 'ADMIN' &&
-      currentUser.role !== 'MODERATOR' &&
-      currentUser.id !== id
-    ) {
+    if (!canReadUserById(id, currentUser)) {
       throw new UserForbiddenError()
     }
 
@@ -51,18 +81,19 @@ export const usersService = {
       throw new UserNotFoundError(id)
     }
 
-    const isAdmin = currentUser.role === 'ADMIN'
-    const isOwner = currentUser.id === id
-
-    if (!isAdmin && !isOwner) {
+    if (!canUpdateUser(id, currentUser)) {
       throw new UserForbiddenError()
     }
 
-    if (!isAdmin && data.role) {
-      throw new UserForbiddenError()
+    if (data.role !== undefined && !isAdmin(currentUser)) {
+      throw new UserRoleUpdateForbiddenError()
     }
 
-    if (data.email && data.email !== user.email) {
+    if (data.role !== undefined && user.role === 'ADMIN') {
+      throw new UserAdminRoleProtectedError()
+    }
+
+    if (data.email !== undefined && data.email !== user.email) {
       const existingUser = await usersRepository.findByEmail(data.email)
 
       if (existingUser) {
@@ -74,7 +105,7 @@ export const usersService = {
   },
 
   async deleteUser(id: string, currentUser: CurrentUser) {
-    if (currentUser.role !== 'ADMIN') {
+    if (!isAdmin(currentUser)) {
       throw new UserForbiddenError()
     }
 
@@ -82,6 +113,10 @@ export const usersService = {
 
     if (!user) {
       throw new UserNotFoundError(id)
+    }
+
+    if (user.role === 'ADMIN') {
+      throw new UserAdminDeleteForbiddenError()
     }
 
     return usersRepository.delete(id)
