@@ -15,18 +15,120 @@ const userSelect = {
   role: true,
   createdAt: true,
   updatedAt: true,
-}
+} as const
 
-const sessionInclude = {
-  scenario: {
+const characterInclude = {
+  roleClass: true,
+  stats: true,
+} as const
+
+const participantItemInclude = {
+  item: true,
+} as const
+
+const participantInclude = {
+  user: {
+    select: userSelect,
+  },
+  character: {
+    include: characterInclude,
+  },
+  items: {
+    include: participantItemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+} as const
+
+const taskRequiredItemInclude = {
+  item: true,
+} as const
+
+const decisionShortInclude = {
+  user: {
+    select: userSelect,
+  },
+  sessionParticipant: {
+    include: participantInclude,
+  },
+  event: true,
+} as const
+
+const sessionTaskInclude = {
+  scenarioTask: {
     include: {
-      tasks: {
+      requiredItems: {
+        include: taskRequiredItemInclude,
         orderBy: {
           createdAt: 'asc' as const,
         },
       },
+    },
+  },
+  sourceTemplate: {
+    include: {
+      requiredItems: {
+        include: taskRequiredItemInclude,
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
+    },
+  },
+  requiredItems: {
+    include: taskRequiredItemInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  decisions: {
+    include: decisionShortInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+} as const
+
+const decisionInclude = {
+  user: {
+    select: userSelect,
+  },
+  sessionParticipant: {
+    include: participantInclude,
+  },
+  event: true,
+  sessionTask: {
+    include: {
+      requiredItems: {
+        include: taskRequiredItemInclude,
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
+      },
+    },
+  },
+} as const
+
+const sessionInclude = {
+  scenario: {
+    include: {
+      direction: true,
       createdBy: {
         select: userSelect,
+      },
+      tasks: {
+        include: {
+          requiredItems: {
+            include: taskRequiredItemInclude,
+            orderBy: {
+              createdAt: 'asc' as const,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc' as const,
+        },
       },
     },
   },
@@ -45,14 +147,14 @@ const sessionInclude = {
     select: userSelect,
   },
   participants: {
+    include: participantInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
+    },
+  },
+  allowedItems: {
     include: {
-      character: {
-        include: {
-          user: {
-            select: userSelect,
-          },
-        },
-      },
+      item: true,
     },
     orderBy: {
       createdAt: 'asc' as const,
@@ -61,12 +163,7 @@ const sessionInclude = {
   events: {
     include: {
       decisions: {
-        include: {
-          character: true,
-          user: {
-            select: userSelect,
-          },
-        },
+        include: decisionShortInclude,
         orderBy: {
           createdAt: 'asc' as const,
         },
@@ -76,27 +173,27 @@ const sessionInclude = {
       createdAt: 'asc' as const,
     },
   },
-  decisions: {
-    include: {
-      character: true,
-      user: {
-        select: userSelect,
-      },
-      event: true,
+  tasks: {
+    include: sessionTaskInclude,
+    orderBy: {
+      createdAt: 'asc' as const,
     },
+  },
+  decisions: {
+    include: decisionInclude,
     orderBy: {
       createdAt: 'asc' as const,
     },
   },
   metrics: true,
   report: true,
-}
+} as const
 
 const reportInclude = {
   session: {
     include: sessionInclude,
   },
-}
+} as const
 
 export const reportsRepository = {
   findSessionById(sessionId: string) {

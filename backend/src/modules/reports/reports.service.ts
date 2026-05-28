@@ -1,5 +1,4 @@
-import { reportsRepository } from './reports.repository'
-import type { CreateReportInput, UpdateReportInput } from './reports.schemas'
+import type { CurrentUser } from '../../shared/types'
 import {
   ReportAlreadyExistsError,
   ReportForbiddenError,
@@ -7,13 +6,18 @@ import {
   ReportSessionNotFinishedError,
   ReportSessionNotFoundError,
 } from './reports.errors'
-import type { CurrentUser } from '../../shared/types'
+import { reportsRepository } from './reports.repository'
+import type { CreateReportInput, UpdateReportInput } from './reports.schemas'
 
-type SessionForAccess = Awaited<ReturnType<typeof reportsRepository.findSessionById>>
+type SessionForAccess = Awaited<
+  ReturnType<typeof reportsRepository.findSessionById>
+>
+
 type ReportForAccess = Awaited<ReturnType<typeof reportsRepository.findById>>
 
 type SessionData = NonNullable<SessionForAccess>
 type DecisionData = SessionData['decisions'][number]
+type SessionTaskData = SessionData['tasks'][number]
 
 type GeneratedReportData = {
   summary: string
@@ -32,27 +36,26 @@ function canManageReports(
   )
 }
 
-function canViewAllReports(currentUser: CurrentUser) {
-  return currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR'
-}
-
 function canViewSession(session: SessionData, currentUser: CurrentUser) {
-  if (canViewAllReports(currentUser)) {
+  if (canManageReports(session, currentUser)) {
     return true
   }
 
-  const isTeamMember = session.team?.members.some(
-    (member) => member.userId === currentUser.id,
+  const isSessionParticipant = session.participants.some(
+    (participant) => participant.userId === currentUser.id,
   )
 
-  const isParticipant = session.participants.some(
-    (participant) => participant.character.userId === currentUser.id,
-  )
+  const isTeamMember =
+    session.team?.members.some((member) => member.userId === currentUser.id) ??
+    false
 
-  return Boolean(isTeamMember || isParticipant)
+  return isSessionParticipant || isTeamMember
 }
 
-function canViewReport(report: NonNullable<ReportForAccess>, currentUser: CurrentUser) {
+function canViewReport(
+  report: NonNullable<ReportForAccess>,
+  currentUser: CurrentUser,
+) {
   return canViewSession(report.session, currentUser)
 }
 
@@ -87,33 +90,150 @@ function average(values: number[]) {
   return Number((sum / values.length).toFixed(1))
 }
 
+function getDecisionAuthor(decision: DecisionData) {
+  return (
+    decision.sessionParticipant?.character?.name ??
+    decision.sessionParticipant?.user.name ??
+    decision.user?.name ??
+    'участник'
+  )
+}
+
+function getTaskTitle(decision: DecisionData) {
+  if (!decision.sessionTask) {
+    return null
+  }
+
+  return decision.sessionTask.title
+}
+
+function getEventTitle(decision: DecisionData) {
+  if (!decision.event) {
+    return null
+  }
+
+  return decision.event.title
+}
+
 function formatDecision(decision: DecisionData) {
-  const author = decision.character?.name ?? decision.user?.name ?? 'участник'
+  const author = getDecisionAuthor(decision)
+  const taskTitle = getTaskTitle(decision)
+  const eventTitle = getEventTitle(decision)
+
+  const contextParts: string[] = []
+
+  if (eventTitle) {
+    contextParts.push(`событие: ${eventTitle}`)
+  }
+
+  if (taskTitle) {
+    contextParts.push(`задание: ${taskTitle}`)
+  }
+
+  const context =
+    contextParts.length > 0 ? ` (${contextParts.join('; ')})` : ''
+
   const result = decision.result ? ` Результат: ${decision.result}.` : ''
   const score =
     typeof decision.score === 'number' ? ` Оценка: ${decision.score}/100.` : ''
 
-  return `${author}: ${decision.description}.${result}${score}`
+  return `${author}${context}: ${decision.description}.${result}${score}`
+}
+
+function formatTask(task: SessionTaskData) {
+  const result = task.result ? ` Результат: ${task.result}.` : ''
+  const fatigue =
+    task.fatigueCost > 0 ? ` Стоимость по усталости: ${task.fatigueCost}.` : ''
+
+  return `${task.title} – статус: ${task.status}.${fatigue}${result}`
+}
+
+function buildCompletedTasks(session: SessionData) {
+  return session.tasks.filter((task) => task.status === 'COMPLETED')
+}
+
+function buildProblemTasks(session: SessionData) {
+  return session.tasks.filter((task) =>
+    ['FAILED', 'CANCELLED'].includes(task.status),
+  )
+}
+
+function buildUsedItemsInfo(session: SessionData) {
+  const usedItems = session.participants.flatMap((participant) =>
+    participant.items.filter((item) => item.isUsed),
+  )
+
+  if (usedItems.length === 0) {
+    return null
+  }
+
+  return usedItems
+    .map((item, index) => `${index + 1}. ${item.nameSnapshot}`)
+    .join('\n')
 }
 
 function buildSuccessfulActions(session: SessionData) {
+  const parts: string[] = []
+
+  const completedTasks = buildCompletedTasks(session)
+
+  if (completedTasks.length > 0) {
+    parts.push(
+      `Выполненные задания:\n${completedTasks
+        .map((task, index) => `${index + 1}. ${formatTask(task)}`)
+        .join('\n')}`,
+    )
+  }
+
   const successfulDecisions = session.decisions.filter(
     (decision) => typeof decision.score === 'number' && decision.score >= 70,
   )
 
-  if (successfulDecisions.length === 0) {
-    return 'Успешные действия отдельно не выделены: в сессии отсутствуют решения с высокой оценкой.'
+  if (successfulDecisions.length > 0) {
+    parts.push(
+      `Решения с высокой оценкой:\n${successfulDecisions
+        .map((decision, index) => `${index + 1}. ${formatDecision(decision)}`)
+        .join('\n')}`,
+    )
   }
 
-  return successfulDecisions
-    .map((decision, index) => `${index + 1}. ${formatDecision(decision)}`)
-    .join('\n')
+  const usedItemsInfo = buildUsedItemsInfo(session)
+
+  if (usedItemsInfo) {
+    parts.push(`Использованные ресурсы:\n${usedItemsInfo}`)
+  }
+
+  if (parts.length === 0) {
+    return 'Успешные действия отдельно не выделены: завершенные задания и решения с высокой оценкой отсутствуют.'
+  }
+
+  return parts.join('\n\n')
 }
 
 function buildProblemActions(session: SessionData) {
+  const parts: string[] = []
+
+  const problemTasks = buildProblemTasks(session)
+
+  if (problemTasks.length > 0) {
+    parts.push(
+      `Проблемные задания:\n${problemTasks
+        .map((task, index) => `${index + 1}. ${formatTask(task)}`)
+        .join('\n')}`,
+    )
+  }
+
   const problemDecisions = session.decisions.filter(
     (decision) => typeof decision.score === 'number' && decision.score < 50,
   )
+
+  if (problemDecisions.length > 0) {
+    parts.push(
+      `Решения с низкой оценкой:\n${problemDecisions
+        .map((decision, index) => `${index + 1}. ${formatDecision(decision)}`)
+        .join('\n')}`,
+    )
+  }
 
   const criticalEvents = session.events.filter((event) =>
     [
@@ -121,23 +241,18 @@ function buildProblemActions(session: SessionData) {
       'RESOURCE_LIMIT',
       'EQUIPMENT_FAILURE',
       'TEAM_CONFLICT',
+      'QUALITY_ISSUE',
+      'SAFETY_RISK',
     ].includes(event.eventType),
   )
-
-  const parts: string[] = []
-
-  if (problemDecisions.length > 0) {
-    parts.push(
-      problemDecisions
-        .map((decision, index) => `${index + 1}. ${formatDecision(decision)}`)
-        .join('\n'),
-    )
-  }
 
   if (criticalEvents.length > 0) {
     parts.push(
       `Критические события сессии:\n${criticalEvents
-        .map((event, index) => `${index + 1}. ${event.title}: ${event.description}`)
+        .map(
+          (event, index) =>
+            `${index + 1}. ${event.title}: ${event.description}`,
+        )
         .join('\n')}`,
     )
   }
@@ -154,7 +269,7 @@ function buildRecommendations(session: SessionData) {
 
   if (!session.metrics) {
     recommendations.push(
-      'Добавить оценку командных метрик для более точного анализа командного взаимодействия.',
+      'Добавить оценку командных метрик для более точного анализа взаимодействия участников.',
     )
   } else {
     if (session.metrics.communicationScore < 70) {
@@ -165,27 +280,35 @@ function buildRecommendations(session: SessionData) {
 
     if (session.metrics.decisionSpeedScore < 70) {
       recommendations.push(
-        'Отработать скорость принятия решений в условиях ограниченного времени.',
+        'Отработать скорость принятия решений при ограниченном времени.',
       )
     }
 
     if (session.metrics.roleDistributionScore < 70) {
       recommendations.push(
-        'Чётче распределять роли участников до начала сценарной сессии.',
+        'Четче распределять роли участников до начала сценарной сессии.',
       )
     }
 
     if (session.metrics.conflictResolutionScore < 70) {
       recommendations.push(
-        'Разработать правила разрешения спорных ситуаций во время командной работы.',
+        'Заранее определить правила разрешения спорных ситуаций во время командной работы.',
       )
     }
 
     if (session.metrics.leadershipScore < 70) {
       recommendations.push(
-        'Определить ответственного лидера или координатора команды на время сценария.',
+        'Определить ответственного координатора команды на время сценария.',
       )
     }
+  }
+
+  const failedTasks = session.tasks.filter((task) => task.status === 'FAILED')
+
+  if (failedTasks.length > 0) {
+    recommendations.push(
+      'Разобрать невыполненные задания и определить, каких данных, ресурсов или решений не хватило участникам.',
+    )
   }
 
   const lowScoreDecisions = session.decisions.filter(
@@ -194,13 +317,19 @@ function buildRecommendations(session: SessionData) {
 
   if (lowScoreDecisions.length > 0) {
     recommendations.push(
-      'Разобрать решения с низкой оценкой и определить, какие данные или ресурсы были недоступны участникам.',
+      'Разобрать решения с низкой оценкой и определить, какие вводные были поняты участниками неверно.',
     )
   }
 
   if (session.events.some((event) => event.eventType === 'EQUIPMENT_FAILURE')) {
     recommendations.push(
       'Дополнительно отработать действия команды при сбоях оборудования или цифровых систем.',
+    )
+  }
+
+  if (session.events.some((event) => event.eventType === 'RESOURCE_LIMIT')) {
+    recommendations.push(
+      'Добавить отдельный сценарный блок по распределению ограниченных ресурсов.',
     )
   }
 
@@ -238,12 +367,31 @@ function buildGeneratedReport(
   const teamName = session.team?.name ?? 'без привязки к команде'
   const scenarioTitle = session.scenario.title
 
+  const completedTasksCount = session.tasks.filter(
+    (task) => task.status === 'COMPLETED',
+  ).length
+
+  const failedTasksCount = session.tasks.filter((task) =>
+    ['FAILED', 'CANCELLED'].includes(task.status),
+  ).length
+
+  const usedItemsCount = session.participants.reduce(
+    (count, participant) =>
+      count + participant.items.filter((item) => item.isUsed).length,
+    0,
+  )
+
   const summary =
     data.summary ??
     [
       `Проведена настольно-ролевая сессия по сценарию "${scenarioTitle}" для команды "${teamName}".`,
+      `Количество участников: ${session.participants.length}.`,
       `В ходе сессии зафиксировано событий: ${session.events.length}.`,
+      `Количество заданий сессии: ${session.tasks.length}.`,
+      `Выполнено заданий: ${completedTasksCount}.`,
+      `Проблемных или отмененных заданий: ${failedTasksCount}.`,
       `Количество решений участников: ${session.decisions.length}.`,
+      `Использовано ресурсов: ${usedItemsCount}.`,
       averageDecisionScore === null
         ? 'Оценки решений отсутствуют.'
         : `Средняя оценка решений: ${averageDecisionScore}/100.`,
@@ -256,8 +404,7 @@ function buildGeneratedReport(
     summary,
     successfulActions:
       data.successfulActions ?? buildSuccessfulActions(session),
-    problemActions:
-      data.problemActions ?? buildProblemActions(session),
+    problemActions: data.problemActions ?? buildProblemActions(session),
     recommendations:
       data.recommendations ?? buildRecommendations(session),
   }
