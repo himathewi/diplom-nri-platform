@@ -1,32 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useScenariosStore } from '../../stores/scenariosStore'
+import {
+  getLabel,
+  scenarioDomainLabels,
+  taskTypeLabels,
+} from '../../constants/labels'
 
-const domainLabels: Record<string, string> = {
-  CROP_PRODUCTION: 'Растениеводство',
-  GREENHOUSE: 'Тепличное хозяйство',
-  LIVESTOCK: 'Животноводство',
-  LOGISTICS: 'Логистика',
-  PROCESSING: 'Переработка продукции',
-  ROBOTICS: 'Робототехника',
-  TEAMBUILDING: 'Командное обучение',
-}
-
-const taskTypeLabels: Record<string, string> = {
-  production_situation: 'Производственная ситуация',
-  resource_distribution: 'Распределение ресурсов',
-  team_decision: 'Командное решение',
-  risk_response: 'Реакция на риск',
-  technical_failure: 'Технический сбой',
-}
-
-function getDomainLabel(domain: string) {
-  return domainLabels[domain] ?? domain
-}
-
-function getTaskTypeLabel(taskType: string) {
-  return taskTypeLabels[taskType] ?? taskType
-}
 
 export function ScenarioDetailsPage() {
   const { id } = useParams()
@@ -184,7 +164,7 @@ export function ScenarioDetailsPage() {
           <p>{selectedScenario.description}</p>
 
           <div className="scenario-card__meta">
-            <span>{getDomainLabel(selectedScenario.domain)}</span>
+            <span>{getLabel(scenarioDomainLabels, selectedScenario.domain)}</span>
             <span>Сложность: {selectedScenario.difficulty} / 5</span>
             <span>Задач: {tasks.length}</span>
           </div>
@@ -297,7 +277,7 @@ export function ScenarioDetailsPage() {
                       <h3>{task.title}</h3>
 
                       <div className="scenario-card__meta">
-                        <span>{getTaskTypeLabel(task.taskType)}</span>
+                        <span>{getLabel(taskTypeLabels, task.taskType)}</span>
                       </div>
                     </div>
 
