@@ -1,6 +1,7 @@
 import type { User } from './user'
 import type { GameSession } from './session'
 import type { SessionEvent } from './sessionEvent'
+import type { SessionTask, TaskAttempt } from './sessionTask'
 
 export type DecisionCharacter = {
   id: string
@@ -22,6 +23,8 @@ export type Decision = {
   characterId?: string | null
   userId?: string | null
   eventId?: string | null
+  sessionTaskId?: string | null
+  taskAttemptId?: string | null
 
   description: string
   result?: string | null
@@ -35,11 +38,15 @@ export type Decision = {
   character?: DecisionCharacter | null
   user?: User | null
   event?: SessionEvent | null
+  sessionTask?: SessionTask | null
+  taskAttempt?: TaskAttempt | null
 }
 
 export type CreateDecisionPayload = {
   characterId?: string | null
   eventId?: string | null
+  sessionTaskId?: string | null
+  taskAttemptId?: string | null
   description: string
   result?: string | null
 }
