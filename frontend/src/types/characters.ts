@@ -8,6 +8,34 @@ export type AbilityKey =
 
 export type Stats = Record<AbilityKey, number>
 
+export type CharacterUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+}
+
+export type CharacterSessionParticipation = {
+  id: string
+  sessionId: string
+  characterId: string
+  createdAt: string
+  session?: {
+    id: string
+    status: string
+    scenario?: {
+      id: string
+      title: string
+      description: string
+    } | null
+    team?: {
+      id: string
+      name: string
+      companyName: string | null
+    } | null
+  }
+}
+
 export type RoleClass = {
   id: string
   name: string
