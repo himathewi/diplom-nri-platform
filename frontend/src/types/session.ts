@@ -1,6 +1,7 @@
-export type SessionStatus = 'PLANNED' | 'ACTIVE' | 'FINISHED'
+import type { SessionEventType, SessionStatus, UserRole } from './enums'
 
-export type UserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' 
+export type { SessionStatus, UserRole } from './enums'
+
 
 export type ScenarioDomain =
   | 'CROP_PRODUCTION'
@@ -66,10 +67,12 @@ export type TeamSummary = {
 export type CharacterSummary = {
   id: string
   userId: string
+  roleClassId: string | null
   name: string
   description: string | null
-  profession: string | null
-  competence: string | null
+  professionalFunction: string | null
+  fatigueLimit: number
+  currentFatigue: number
   createdAt: string
   updatedAt: string
   user: UserSummary
@@ -88,9 +91,8 @@ export type SessionEventSummary = {
   sessionId: string
   title: string
   description: string
-  eventType: string
+  eventType: SessionEventType
   impact: string | null
-  createdById: string
   createdAt: string
 }
 
@@ -123,8 +125,8 @@ export type SessionReportSummary = {
   id: string
   sessionId: string
   summary: string
-  successfulDecisions: string | null
-  failedDecisions: string | null
+  successfulActions: string | null
+  problemActions: string | null
   recommendations: string | null
   createdAt: string
   updatedAt: string

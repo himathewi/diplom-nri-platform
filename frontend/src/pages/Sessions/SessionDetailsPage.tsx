@@ -477,7 +477,7 @@ async function handleDeleteReport() {
                     </h3>
 
                     <p>
-                    {participant.character?.profession ?? 'Ролевой профиль не указан'}
+                    {participant.character?.professionalFunction ?? 'Ролевой профиль не указан'}
                     </p>
                     <div className="scenario-card__meta">
                       <span>ID: {participant.id}</span>
