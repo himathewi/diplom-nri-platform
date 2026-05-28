@@ -1,24 +1,14 @@
-export type ReportUserRole = 'ADMIN' | 'MODERATOR' | 'PARTICIPANT' 
+import type {
+  ScenarioDomain,
+  SessionEventType,
+  SessionStatus,
+  UserRole,
+} from './enums'
 
-export type ReportSessionStatus = 'PLANNED' | 'ACTIVE' | 'FINISHED'
-
-export type ReportScenarioDomain =
-  | 'CROP_PRODUCTION'
-  | 'GREENHOUSE'
-  | 'LIVESTOCK'
-  | 'LOGISTICS'
-  | 'PROCESSING'
-  | 'ROBOTICS'
-  | 'TEAMBUILDING'
-  | 'OTHER'
-
-export type ReportEventType =
-  | 'PRODUCTION_PROBLEM'
-  | 'WEATHER_CHANGE'
-  | 'RESOURCE_LIMIT'
-  | 'EQUIPMENT_FAILURE'
-  | 'TEAM_CONFLICT'
-  | 'INFORMATION_UPDATE'
+export type ReportUserRole = UserRole
+export type ReportSessionStatus = SessionStatus
+export type ReportScenarioDomain = ScenarioDomain
+export type ReportEventType = SessionEventType
 
 export type ReportUser = {
   id: string
@@ -32,10 +22,12 @@ export type ReportUser = {
 export type ReportCharacter = {
   id: string
   userId: string
+  roleClassId: string | null
   name: string
   description?: string | null
-  profession?: string | null
-  competence?: string | null
+  professionalFunction?: string | null
+  fatigueLimit?: number
+  currentFatigue?: number
   user?: ReportUser
   createdAt: string
   updatedAt: string
@@ -99,9 +91,7 @@ export type ReportSessionEvent = {
   description: string
   eventType: ReportEventType
   impact?: string | null
-  createdById: string
   createdAt: string
-  updatedAt: string
 }
 
 export type ReportDecision = {
@@ -139,8 +129,6 @@ export type ReportGameSession = {
   scenarioId: string
   teamId?: string | null
   moderatorId?: string | null
-  title: string
-  description?: string | null
   status: ReportSessionStatus
   startedAt?: string | null
   finishedAt?: string | null
