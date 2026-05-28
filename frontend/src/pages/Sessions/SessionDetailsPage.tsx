@@ -14,6 +14,7 @@ import type { SessionEventType } from '../../types/sessionEvent'
 import { useInvitationsStore } from '../../stores/invitationsStore'
 import type { InvitationType } from '../../types/invitation'  
 import { useSessionTasksStore } from '../../stores/sessionTasksStore'
+import { useItemsStore } from '../../stores/itemsStore'
 
 export function SessionDetailsPage() {
   const { id } = useParams()
@@ -86,6 +87,22 @@ export function SessionDetailsPage() {
     clearSessionTasks,
     clearError: clearSessionTasksError,
   } = useSessionTasksStore()
+  const {
+    catalogItems,
+    sessionItems,
+    participantItemsByParticipantId,
+    isLoading: isItemsLoading,
+    error: itemsError,
+    fetchCatalogItems,
+    createCatalogItem,
+    fetchSessionItems,
+    allowSessionItem,
+    removeSessionAllowedItem,
+    fetchParticipantItems,
+    grantParticipantItem,
+    updateParticipantItem,
+    clearError: clearItemsError,
+  } = useItemsStore()
   
   const [eventTitle, setEventTitle] = useState('')
   const [eventDescription, setEventDescription] = useState('')
@@ -115,6 +132,18 @@ export function SessionDetailsPage() {
     difficulty: number
     success: boolean
   } | null>(null)
+
+  const [catalogItemName, setCatalogItemName] = useState('')
+  const [catalogItemType, setCatalogItemType] = useState('EQUIPMENT')
+  const [catalogItemDescription, setCatalogItemDescription] = useState('')
+
+  const [selectedCatalogItemId, setSelectedCatalogItemId] = useState('')
+  const [sessionItemQuantity, setSessionItemQuantity] = useState(1)
+  const [sessionItemNotes, setSessionItemNotes] = useState('')
+
+  const [participantItemName, setParticipantItemName] = useState('')
+  const [participantItemQuantity, setParticipantItemQuantity] = useState(1)
+  const [participantItemNotes, setParticipantItemNotes] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -198,6 +227,22 @@ export function SessionDetailsPage() {
     if (!id || selectedSession?.status !== 'ACTIVE') {
       return
     }
+    useEffect(() => {
+    if (id) {
+      void fetchCatalogItems()
+      void fetchSessionItems(id)
+    }
+
+    return () => {
+      clearItemsError()
+    }
+  }, [id, fetchCatalogItems, fetchSessionItems, clearItemsError])
+
+  useEffect(() => {
+    participants.forEach((participant) => {
+      void fetchParticipantItems(participant.id)
+    })
+  }, [participants, fetchParticipantItems])
 
     const normalizedTitle = eventTitle.trim()
     const normalizedDescription = eventDescription.trim()
@@ -398,6 +443,106 @@ async function handleRevokeInvitation(invitationId: string) {
       dice,
       difficulty,
       success: dice >= difficulty,
+    })
+  }
+  async function handleCreateCatalogItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clearItemsError()
+
+    const normalizedName = catalogItemName.trim()
+    const normalizedDescription = catalogItemDescription.trim()
+
+    if (!normalizedName) {
+      return
+    }
+
+    const item = await createCatalogItem({
+      name: normalizedName,
+      type: catalogItemType as 'TOOL' | 'DOCUMENT' | 'EQUIPMENT' | 'SENSOR' | 'CONSUMABLE' | 'OTHER',
+      description: normalizedDescription || null,
+      isPublic: true,
+      isActive: true,
+    })
+
+    if (!item) {
+      return
+    }
+
+    setCatalogItemName('')
+    setCatalogItemType('EQUIPMENT')
+    setCatalogItemDescription('')
+  }
+
+  async function handleAllowSessionItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clearItemsError()
+
+    if (!id || !selectedCatalogItemId) {
+      return
+    }
+
+    const allowedItem = await allowSessionItem(id, {
+      itemId: selectedCatalogItemId,
+      quantity: sessionItemQuantity,
+      isVisible: true,
+      notes: sessionItemNotes.trim() || null,
+    })
+
+    if (!allowedItem) {
+      return
+    }
+
+    setSelectedCatalogItemId('')
+    setSessionItemQuantity(1)
+    setSessionItemNotes('')
+  }
+
+  async function handleRemoveSessionItem(itemId: string) {
+    if (!id) {
+      return
+    }
+
+    const confirmed = window.confirm('Убрать ресурс из сессии?')
+
+    if (!confirmed) {
+      return
+    }
+
+    await removeSessionAllowedItem(id, itemId)
+  }
+
+  async function handleGrantParticipantItem(participantId: string) {
+    clearItemsError()
+
+    const normalizedName = participantItemName.trim()
+    const normalizedNotes = participantItemNotes.trim()
+
+    if (!normalizedName) {
+      return
+    }
+
+    const item = await grantParticipantItem(participantId, {
+      nameSnapshot: normalizedName,
+      quantity: participantItemQuantity,
+      notes: normalizedNotes || null,
+    })
+
+    if (!item) {
+      return
+    }
+
+    setParticipantItemName('')
+    setParticipantItemQuantity(1)
+    setParticipantItemNotes('')
+  }
+
+  async function handleToggleParticipantItem(
+    participantId: string,
+    itemId: string,
+    isUsed: boolean,
+  ) {
+    await updateParticipantItem(itemId, participantId, {
+      isUsed: !isUsed,
     })
   }
 
@@ -608,6 +753,283 @@ async function handleRevokeInvitation(invitationId: string) {
                   )}
                 </article>
               ))}
+            </div>
+          )}
+        </article>
+        <article className="details-card">
+          <h2>Ресурсы и инвентарь</h2>
+
+          <div className="resources-grid">
+            <section className="resource-section">
+              <h3>Каталог ресурсов</h3>
+
+              {selectedSession.status === 'PLANNED' && (
+                <form className="task-form resource-form" onSubmit={handleCreateCatalogItem}>
+                  <label className="form-field">
+                    <span>Название ресурса</span>
+                    <input
+                      required
+                      value={catalogItemName}
+                      placeholder="Например: датчик влажности"
+                      onChange={(event) => setCatalogItemName(event.target.value)}
+                    />
+                  </label>
+
+                  <label className="form-field">
+                    <span>Тип ресурса</span>
+                    <select
+                      value={catalogItemType}
+                      onChange={(event) => setCatalogItemType(event.target.value)}
+                    >
+                      <option value="TOOL">Инструмент</option>
+                      <option value="DOCUMENT">Документ</option>
+                      <option value="EQUIPMENT">Оборудование</option>
+                      <option value="SENSOR">Датчик</option>
+                      <option value="CONSUMABLE">Расходный материал</option>
+                      <option value="OTHER">Другое</option>
+                    </select>
+                  </label>
+
+                  <label className="form-field">
+                    <span>Описание</span>
+                    <textarea
+                      rows={3}
+                      value={catalogItemDescription}
+                      placeholder="Кратко опишите назначение ресурса."
+                      onChange={(event) =>
+                        setCatalogItemDescription(event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <div className="form-actions">
+                    <button
+                      className="button-secondary"
+                      type="submit"
+                      disabled={isItemsLoading}
+                    >
+                      Добавить в каталог
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {catalogItems.length === 0 ? (
+                <div className="empty-state">
+                  <h2>Каталог пуст</h2>
+                  <p>Добавьте ресурсы, которые могут использоваться в сценарной сессии.</p>
+                </div>
+              ) : (
+                <div className="resources-list">
+                  {catalogItems.map((item) => (
+                    <article className="resource-card" key={item.id}>
+                      <h4>{item.name}</h4>
+                      <p>{item.description ?? 'Описание не указано'}</p>
+                      <div className="scenario-card__meta">
+                        <span>{item.type}</span>
+                        <span>{item.isActive ? 'Активен' : 'Неактивен'}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="resource-section">
+              <h3>Ресурсы сессии</h3>
+
+              {selectedSession.status === 'PLANNED' && (
+                <form className="task-form resource-form" onSubmit={handleAllowSessionItem}>
+                  <label className="form-field">
+                    <span>Ресурс из каталога</span>
+                    <select
+                      required
+                      value={selectedCatalogItemId}
+                      onChange={(event) => setSelectedCatalogItemId(event.target.value)}
+                    >
+                      <option value="">Выберите ресурс</option>
+
+                      {catalogItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="form-field">
+                    <span>Количество</span>
+                    <input
+                      min={1}
+                      type="number"
+                      value={sessionItemQuantity}
+                      onChange={(event) =>
+                        setSessionItemQuantity(Math.max(1, Number(event.target.value)))
+                      }
+                    />
+                  </label>
+
+                  <label className="form-field">
+                    <span>Заметка</span>
+                    <textarea
+                      rows={2}
+                      value={sessionItemNotes}
+                      placeholder="Например: доступно только агроному или инженеру."
+                      onChange={(event) => setSessionItemNotes(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="form-actions">
+                    <button
+                      className="button-primary"
+                      type="submit"
+                      disabled={isItemsLoading || !selectedCatalogItemId}
+                    >
+                      Разрешить в сессии
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {sessionItems.length === 0 ? (
+                <div className="empty-state">
+                  <h2>Ресурсы не выбраны</h2>
+                  <p>
+                    Добавьте ресурсы сессии, чтобы участники могли использовать их при
+                    выполнении заданий.
+                  </p>
+                </div>
+              ) : (
+                <div className="resources-list">
+                  {sessionItems.map((sessionItem) => (
+                    <article className="resource-card" key={sessionItem.id}>
+                      <div className="task-card__header">
+                        <div>
+                          <h4>{sessionItem.item.name}</h4>
+                          <div className="scenario-card__meta">
+                            <span>Количество: {sessionItem.quantity}</span>
+                            <span>{sessionItem.isVisible ? 'Видно' : 'Скрыто'}</span>
+                          </div>
+                        </div>
+
+                        {selectedSession.status === 'PLANNED' && (
+                          <button
+                            className="button-ghost-danger"
+                            type="button"
+                            onClick={() => handleRemoveSessionItem(sessionItem.itemId)}
+                          >
+                            Убрать
+                          </button>
+                        )}
+                      </div>
+
+                      <p>{sessionItem.notes ?? sessionItem.item.description ?? 'Без заметки'}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <section className="participant-inventory-section">
+            <h3>Инвентарь участников</h3>
+
+            {participants.length === 0 ? (
+              <div className="empty-state">
+                <h2>Участников нет</h2>
+                <p>После присоединения участников здесь будет отображаться их инвентарь.</p>
+              </div>
+            ) : (
+              <div className="participant-inventory-list">
+                {participants.map((participant) => {
+                  const participantItems =
+                    participantItemsByParticipantId[participant.id] ?? []
+
+                  return (
+                    <article className="participant-inventory-card" key={participant.id}>
+                      <h4>
+                        {participant.character?.name ?? `Участник ${participant.id}`}
+                      </h4>
+
+                      {selectedSession.status !== 'FINISHED' && (
+                        <div className="participant-item-form">
+                          <input
+                            value={participantItemName}
+                            placeholder="Название ресурса"
+                            onChange={(event) => setParticipantItemName(event.target.value)}
+                          />
+
+                          <input
+                            min={1}
+                            type="number"
+                            value={participantItemQuantity}
+                            onChange={(event) =>
+                              setParticipantItemQuantity(
+                                Math.max(1, Number(event.target.value)),
+                              )
+                            }
+                          />
+
+                          <input
+                            value={participantItemNotes}
+                            placeholder="Заметка"
+                            onChange={(event) =>
+                              setParticipantItemNotes(event.target.value)
+                            }
+                          />
+
+                          <button
+                            className="button-secondary"
+                            type="button"
+                            disabled={isItemsLoading}
+                            onClick={() => handleGrantParticipantItem(participant.id)}
+                          >
+                            Выдать
+                          </button>
+                        </div>
+                      )}
+
+                      {participantItems.length === 0 ? (
+                        <p>Ресурсы участнику пока не выданы.</p>
+                      ) : (
+                        <div className="participant-items-list">
+                          {participantItems.map((item) => (
+                            <div className="participant-item-row" key={item.id}>
+                              <div>
+                                <strong>{item.nameSnapshot}</strong>
+                                <span>
+                                  Количество: {item.quantity}
+                                  {item.notes ? ` · ${item.notes}` : ''}
+                                </span>
+                              </div>
+
+                              <button
+                                className="button-secondary"
+                                type="button"
+                                onClick={() =>
+                                  handleToggleParticipantItem(
+                                    participant.id,
+                                    item.id,
+                                    item.isUsed,
+                                  )
+                                }
+                              >
+                                {item.isUsed ? 'Использован' : 'Отметить'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
+          {itemsError && (
+            <div className="alert-error">
+              <p>{itemsError}</p>
             </div>
           )}
         </article>
@@ -1403,27 +1825,72 @@ async function handleRevokeInvitation(invitationId: string) {
           )}
         </article>
         
-        <article className="details-card">
-          <h2>Итоговый отчёт</h2>
+        <article className="details-card report-panel">
+          <div className="report-panel__header">
+            <div>
+              <h2>Итоговый отчёт</h2>
+
+              <p>
+                Отчёт собирает результаты завершённой сценарной сессии: события,
+                решения участников, задания, оценки и рекомендации для дальнейшего
+                разбора.
+              </p>
+            </div>
+
+            <div className="report-status-badge">
+              {selectedSession.status === 'FINISHED'
+                ? 'Сессия завершена'
+                : 'Сессия не завершена'}
+            </div>
+          </div>
+
+          <div className="report-summary-grid">
+            <div className="report-summary-card">
+              <span>Участники</span>
+              <strong>{participants.length}</strong>
+            </div>
+
+            <div className="report-summary-card">
+              <span>События</span>
+              <strong>{events.length}</strong>
+            </div>
+
+            <div className="report-summary-card">
+              <span>Решения</span>
+              <strong>{decisions.length}</strong>
+            </div>
+
+            <div className="report-summary-card">
+              <span>Задания</span>
+              <strong>{sessionTasks.length}</strong>
+            </div>
+
+            <div className="report-summary-card">
+              <span>Ресурсы</span>
+              <strong>{sessionItems.length}</strong>
+            </div>
+          </div>
 
           {selectedSession.status !== 'FINISHED' && (
-            <div className="info-box">
+            <div className="info-box report-info-box">
               <h3>Отчёт пока недоступен</h3>
+
               <p>
-                Итоговый отчёт формируется после завершения сессии, когда уже доступны
-                события, решения участников и оценки модератора.
+                Итоговый отчёт формируется после завершения сессии. До этого момента
+                модератор может добавлять события, фиксировать решения, работать с
+                заданиями и ресурсами участников.
               </p>
             </div>
           )}
 
           {selectedSession.status === 'FINISHED' && !selectedReport && (
-            <>
-              <div className="info-box">
+            <div className="report-empty-state">
+              <div>
                 <h3>Отчёт ещё не сформирован</h3>
+
                 <p>
-                  Сформируйте итоговый отчёт, чтобы зафиксировать результаты сценарной
-                  сессии, успешные действия, проблемные решения и рекомендации для
-                  команды.
+                  Сформируйте итоговый отчёт, чтобы зафиксировать результат сессии,
+                  успешные действия, проблемные решения и рекомендации для команды.
                 </p>
               </div>
 
@@ -1443,18 +1910,23 @@ async function handleRevokeInvitation(invitationId: string) {
                   {isReportLoading ? 'Формирование...' : 'Сформировать отчёт'}
                 </button>
               </div>
-            </>
+            </div>
           )}
 
           {selectedSession.status === 'FINISHED' && selectedReport && (
-            <div className="report-card">
+            <div className="report-card report-card--expanded">
               <div className="task-card__header">
                 <div>
-                  <h3>Отчёт #{selectedReport.id}</h3>
+                  <h3>Отчёт по сессии</h3>
 
                   <div className="scenario-card__meta">
-                    <span>Сессия: {selectedReport.sessionId}</span>
-                    <span>Создан: {new Date(selectedReport.createdAt).toLocaleString()}</span>
+                    <span>ID: {selectedReport.id}</span>
+                    <span>
+                      Создан: {new Date(selectedReport.createdAt).toLocaleString()}
+                    </span>
+                    <span>
+                      Обновлён: {new Date(selectedReport.updatedAt).toLocaleString()}
+                    </span>
                   </div>
                 </div>
 
@@ -1468,31 +1940,78 @@ async function handleRevokeInvitation(invitationId: string) {
                 </button>
               </div>
 
-              <div className="report-section">
+              <div className="report-highlight">
                 <h4>Краткое резюме</h4>
                 <p>{selectedReport.summary}</p>
               </div>
 
-              {selectedReport.successfulActions && (
-                <div className="report-section">
+              <div className="report-sections-grid">
+                <section className="report-section-card">
                   <h4>Успешные действия</h4>
-                  <p>{selectedReport.successfulActions}</p>
-                </div>
-              )}
 
-              {selectedReport.problemActions && (
-                <div className="report-section">
+                  <p>
+                    {selectedReport.successfulActions ??
+                      'Успешные действия пока не указаны.'}
+                  </p>
+                </section>
+
+                <section className="report-section-card">
                   <h4>Проблемные действия</h4>
-                  <p>{selectedReport.problemActions}</p>
-                </div>
-              )}
 
-              {selectedReport.recommendations && (
-                <div className="report-section">
+                  <p>
+                    {selectedReport.problemActions ??
+                      'Проблемные действия пока не указаны.'}
+                  </p>
+                </section>
+
+                <section className="report-section-card report-section-card--wide">
                   <h4>Рекомендации</h4>
-                  <p>{selectedReport.recommendations}</p>
-                </div>
-              )}
+
+                  <p>
+                    {selectedReport.recommendations ??
+                      'Рекомендации пока не указаны.'}
+                  </p>
+                </section>
+              </div>
+
+              <div className="report-analysis-grid">
+                <section>
+                  <h4>Решения участников</h4>
+
+                  {decisions.length === 0 ? (
+                    <p>Решения в ходе сессии не зафиксированы.</p>
+                  ) : (
+                    <ul>
+                      {decisions.slice(0, 4).map((decision) => (
+                        <li key={decision.id}>
+                          <span>{decision.description}</span>
+
+                          {decision.score !== null && decision.score !== undefined && (
+                            <strong>{decision.score} / 5</strong>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section>
+                  <h4>Задания сессии</h4>
+
+                  {sessionTasks.length === 0 ? (
+                    <p>Задания в сессии не использовались.</p>
+                  ) : (
+                    <ul>
+                      {sessionTasks.slice(0, 4).map((task) => (
+                        <li key={task.id}>
+                          <span>{task.title}</span>
+                          <strong>сложность {task.difficulty ?? 1}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
             </div>
           )}
         </article>
